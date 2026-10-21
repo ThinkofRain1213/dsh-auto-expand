@@ -175,7 +175,8 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
   // ── 改动 1：自动展开策略 ────────────────────────────────────────────────
   // 官方为 `useDisclosure()`（恒从折叠开始）。这里改为跟随 group 的关闭状态：
   // 未关闭 → 展开；关闭时 autoOpen 变 false → 丢弃手动覆盖 → 折叠一次。
-  const { open, setOpen, toggle: toggleDisclosure } = useAutoDisclosure(!(closed === true))
+  const autoOpen = !(closed === true)
+  const { open, setOpen, toggle: toggleDisclosure } = useAutoDisclosure(autoOpen)
   const firstKey = members?.[0]?.key ?? ''
   const bottom = props.useChatNodeBottom(firstKey)
   const deferCollapse = bottom === true && props.deferCollapse
@@ -214,15 +215,21 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
   const bodyId = useId()
   const { edges, events, initialize } = useProcessScroll(bodyRef, contentRef, open, grouped)
   // ── 改动 2：自动展开的滚动初始化 ────────────────────────────────────────
-  // 官方 `toggle` 在手动展开时调用 `initialize(...)`；自动展开不经过它，
+  // 官方 `toggle` 在**手动**展开时调用 `initialize(...)`；自动展开不经过它，
   // 若不补这一步，body 展开后会停在顶部，看不到最新进展。
-  // 未关闭的 group 内容在增长，因此从底部开始（与官方对 `closed === false`
-  // 的手动展开一致）。
-  const previousOpen = useRef(open)
+  //
+  // 判据必须是 `autoOpen` 的翻转，不能是 `open` 的翻转：`open` 同时受手动
+  // 覆盖影响，用它会导致手动展开也走到这里，抢掉 `toggle` 已设定的位置。
+  // 这会让**已完成**的 group 在手动展开时被强行滚到底部，与官方（滚到顶部）
+  // 不一致。
+  //
+  // 因此这里只在"自动从折叠变展开"时定位，且未关闭的 group 内容在增长，
+  // 从底部开始（与官方对 `closed === false` 的手动展开一致）。
+  const previousAutoOpen = useRef(autoOpen)
   useEffect(() => {
-    if (!previousOpen.current && open && grouped) initialize('bottom')
-    previousOpen.current = open
-  }, [open, grouped, initialize])
+    if (!previousAutoOpen.current && autoOpen && grouped) initialize('bottom')
+    previousAutoOpen.current = autoOpen
+  }, [autoOpen, grouped, initialize])
   const toggle = useCallback(() => {
     if (!open) initialize(closed === false ? 'bottom' : 'top')
     toggleDisclosure()

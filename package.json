@@ -48,7 +48,7 @@
     "build": "tsdown",
     "watch": "tsdown --watch",
     "typecheck": "tsc -p tsconfig.json --pretty false",
-    "test": "node --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs",
+    "test": "node --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs tests/scroll-init.spec.mjs",
     "smoke": "node scripts/smoke-client.mjs",
     "verify": "pnpm typecheck && pnpm build && pnpm test && pnpm smoke",
     "clean": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\""

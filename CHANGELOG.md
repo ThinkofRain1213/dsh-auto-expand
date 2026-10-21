@@ -59,10 +59,13 @@
   以官方类名判空，对插件渲染的行恒判为"非空"。见 `spec/P6-REPORT.md` 8.4。
 - **两处克隆偏差**：`webSearch` 图标多了 `size={14}`；`pending-bubbles` 多出一条
   上游不存在的 `padding-right: 4px`。见 `spec/P6-REPORT.md` 8.3。
-- **开启折叠动画后出现跳变、过度上拉、底部空白**：`collapseTiming` 设为
-  `next-input` 时，官方 `capped` 公式会随 `open` 翻转，body 在动画测量前被摊成
-  完整高度，于是动画从几千 px 收起。修法是让 `capped` 只依赖 `grouped`。
-  见 `src/client/flow/group-capped.ts` 与 `spec/MOTION-PLAN.md` 第 2.2 节。
+
+> **不修的官方问题**：`collapseTiming` 设为 `next-input` 时，官方
+> `ChatGroupSeat.tsx:182` 的 `capped` 公式会随 `open` 翻转，使 body 在动画测量前
+> 被摊成完整高度，表现为折叠时跳变 + 过度上拉 + 底部空白。曾在本插件侧修过一版，
+> **已按要求还原**：这是官方的 bug，在插件层长期偏离官方渲染代码会抬高升级成本
+> （`pnpm drift` 的 `verbatim` 条目会变成"有未声明改动"）。推演见
+> `spec/MOTION-PLAN.md` 第 2.2 节。
 
 ### 建议设置
 
@@ -79,6 +82,7 @@
 | 手动展开大段 | 瞬时跳变 | 官方 `useFlowHidden` 写死 `grow = false`，展开动画只给 header |
 | 思考块折叠/展开 | 瞬时跳变 | `DisclosureRow` 的 `{open && children}` 不在官方动画体系内 |
 | 模型生成新内容时 | 视口瞬间跳 | 官方走 `followTail()` 默认 `instant`，滚动状态机在 `ChatView` 里，插件够不到 |
+| `next-input` 下折叠 | 跳变 + 上拉 + 底部空白 | 官方 `capped` 翻转 bug，插件不修（见上） |
 
 完整分析与可行方案见 `spec/MOTION-PLAN.md` 第 6 节。
 

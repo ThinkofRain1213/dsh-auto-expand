@@ -8,19 +8,25 @@
 
 ## 0. 一句话结论
 
-| 层 | 状态 | 做法 |
+**本插件当前不修改任何动画/布局代码，全部沿用官方行为。** 下表是现状与可做的事：
+
+| 层 | 状态 | 说明 |
 |---|---|---|
-| 折叠时的跳变 / 过度上拉 / 底部空白 | ✅ 已修 | `capped` 不再随 `open` 翻转（`group-capped.ts`） |
-| 折叠时外层滚动平滑 | ✅ 已生效 | 用户设 `collapseTiming: next-input`（仅"运行中"窗口内） |
+| 折叠时外层滚动平滑 | ✅ 官方机制 | 用户设 `collapseTiming: next-input`（仅"运行中"窗口内） |
+| 折叠时的跳变 / 过度上拉 / 底部空白 | ⚠️ **官方 bug，已还原不修** | `next-input` 下 `capped` 翻转导致，见 2.2 与"还原决定" |
 | 折叠动画脱离「运行中」窗口 | ❌ 未做 | 需在我们节点上加 `data-chat-motion`，**有风险**，见 6.5 |
 | group body **展开**动画 | ❌ 未做 | 官方 `useFlowHidden` 写死 `grow = false`，必须自建 |
 | 思考块折叠/展开动画 | ❌ 未做 | `DisclosureRow` 的 `{open && children}` 不在动画体系内 |
 | 内容增长时的滚动平滑 | ❌ **不可行** | 滚动状态机在 `ChatView`/`ChatViewport`，插件够不到 |
 
-> ⚠️ **一节重要更正**：第 2.1 节曾写"改一个设置就能打开官方动画"，实测后
-> 证明**不完整**。`data-chat-motion` 需要三个条件同时成立，其中
-> `running || motionTail || pendingInputs.length > 0` 意味着动画只在
-> **一轮运行中或刚结束 800ms 内**存在。详见 6.1。
+> ⚠️ **两处重要更正**，都是真机推翻读代码的结论：
+>
+> 1. 第 2.1 节曾写"改一个设置就能打开官方动画"，**不完整**。
+>    `data-chat-motion` 需要三个条件同时成立，其中
+>    `running || motionTail || pendingInputs.length > 0` 意味着动画只在
+>    **一轮运行中或刚结束 800ms 内**存在。详见 6.1。
+> 2. 第 2.2 节曾实施过 `capped` 的修正，**已按要求还原**（见该节"还原决定"）。
+>    插件层修官方 bug 的长期成本高于收益。
 
 ---
 
@@ -105,7 +111,7 @@ profile 的 `cordis.patch.yml`：
 
 ---
 
-## 2.2 打开动画后暴露的第二个 bug：`capped` 翻转
+## 2.2 打开动画后暴露的第二层问题：`capped` 翻转
 
 `next-input` 下第一次折叠就出现三个症状：**上面跳变、下面被拉上去、最下面凭空多出
 空白**。三者是同一个数字算错的三种表现。
@@ -136,16 +142,29 @@ const capped = grouped && (!deferCompletedTurns || open)
 `DEFAULT_COLLAPSE_TIMING = 'completion'`，那时 `capped` 恒等于 `grouped`、与
 `open` 无关，折叠前后都是 400px，动画正确。只有切到 `next-input` 才暴露。
 
-### 修法（已实施）
+### 处理：**已还原为官方写法**
 
-`capped` 是 body 的**布局属性**，不该随展开状态变化：
+曾改过一版（`capped` 去掉 `open` 依赖，抽到 `group-capped.ts`），解决了三个症状，
+但**已按要求还原**——原因见下方"还原决定"。
 
-```ts
-const capped = isBodyCapped(grouped)   // 原：grouped && (!deferCompletedTurns || open)
-```
+### 还原决定（2026-10-22）
 
-判定抽到 `src/client/flow/group-capped.ts`（纯函数 + 完整推演），
-`tests/group-capped.spec.mjs` 固化"与官方公式的差异只有一格"。
+用户要求："上轮偏离官方的改动还原掉。"
+
+`capped` 现在**逐字保留官方公式**。这意味着：
+
+- `collapseTiming: 'completion'`（默认）下一切正常；
+- `collapseTiming: 'next-input'` 下折叠会出现跳变 + 过度上拉 + 底部空白。
+
+**这个 bug 属于官方**：`next-input` 是官方提供的选项，在该选项下官方自己的
+collapse 动画就是错的。本插件不接管它。
+
+真要修，正确的归属是向上游报告（`ui-chat` 的 `ChatGroupSeat.tsx:182`），而不是
+在插件里长期偏离官方的渲染代码——偏离会让 `pnpm drift` 的 `verbatim` 条目变成
+"有未声明改动"，增加升级成本。
+
+> 记录这次改动与还原，是为了说明：**插件层修官方 bug 要权衡长期成本**。
+> 一次 4 行的偏离看似便宜，但它让这个文件不再是"官方代码 + 已知修改点"的形态。
 
 ---
 
@@ -414,14 +433,14 @@ if (tipChanged && reading.followingTail) {
 
 ## 7. 当前状态
 
-### 已完成并有真机确认
+### 沿用官方，本插件零改动
 
-| 项 | 做法 |
+| 项 | 说明 |
 |---|---|
-| 折叠时的跳变 / 过度上拉 / 底部空白 | 修 `capped` 翻转（`group-capped.ts`） |
-| 一轮运行中折叠时，外层滚动平滑 | 用户设 `collapseTiming: next-input` → `InputFoldDriver` |
+| 一轮运行中折叠时，外层滚动平滑 | 用户设 `collapseTiming: next-input` → 官方 `InputFoldDriver` |
+| `capped` 翻转的三个症状 | **官方 bug，不修**。`completion` 下不出现；`next-input` 下出现 |
 
-### 未解决（全部需要改代码）
+### 未解决（全部需要改代码，尚未实施）
 
 | 项 | 难度 | 备注 |
 |---|---|---|
@@ -429,6 +448,7 @@ if (tipChanged && reading.followingTail) {
 | group body 展开动画 | 中（约 40 行） | 官方 `useFlowHidden` 写死 `grow=false` |
 | 思考块折叠/展开动画 | 中（约 60 行） | 见第 4 节 |
 | 内容增长时的滚动平滑 | **高（不建议）** | 需克隆 `ChatView` + 视口状态机 |
+| `next-input` 下的 `capped` bug | 低（4 行）但**已决定不做** | 属官方，应向上游报告 |
 
 ### 建议的下一步
 

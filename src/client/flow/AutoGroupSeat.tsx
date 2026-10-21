@@ -3,17 +3,16 @@
  *
  * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
  *
- * 修改点（五处，其余逐字保留）：
+ * 修改点（四处，其余逐字保留）：
  *   1. 本地 `useDisclosure()` → `useAutoDisclosure(!closed)`：body 默认展开，
  *      group 关闭时自动折叠一次（这是本插件的核心行为）。
  *   2. 新增自动展开时的滚动定位：官方 `toggle` 里有 `initialize(...)`，
  *      但自动展开不经过它，必须在同一帧显式补上（`initialize` + `realign`）。
  *   3. 新增 `GroupOpenContext.Provider`：把 body 展开状态下发给内层思考块。
  *   4. `useProcessScroll` 解构出新增的 `realign`。
- *   5. `capped` 去掉 `open` 依赖（官方公式在折叠瞬间把 body 摊成完整高度，
- *      破坏了"从屏幕上的样子开始"，详见该处注释）。
  *
  * 保留不动（关键）：
+ *   - `capped` 计算 → 400px 高度上限（官方逐字保留，见 spec/MOTION-PLAN.md 6.4）
  *   - `useGroupHeaderAction` → header 显隐动画
  *   - `bodyRef = useGroupAction(grouped && !open, reveal)` → 折叠动画与焦点保护
  *   - `useProcessScroll` → 内部滚动跟随与边缘渐变
@@ -37,7 +36,6 @@ import { AutoNodeSeat } from './AutoNodeSeat.tsx'
 import { chatRenderKey, hiddenOrCollapsing, processTitle } from './flow-utils.ts'
 import { useProcessScroll } from './use-process-scroll.ts'
 import { shouldAlignBody, type ScrollAlignState } from './scroll-align.ts'
-import { isBodyCapped } from './group-capped.ts'
 import css from './AutoGroupSeat.module.css'
 
 /** 座位 props：去掉 `nodeKey`/`groupPart` 后的 `AutoNodeSeat` props。 */
@@ -251,16 +249,9 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
     toggleDisclosure()
   }, [closed, initialize, open, toggleDisclosure])
   if (members === undefined) return null
-  // ── 改动 5：高度上限不再随展开状态翻转 ──────────────────────────────────
-  // 官方（`ChatGroupSeat.tsx:182`）：`grouped && (!deferCompletedTurns || open)`
-  //
-  // 那个公式在 `collapseTiming === 'next-input'` 时会在折叠瞬间把 body 摊成完整
-  // 高度，破坏"从屏幕上的样子开始"，导致跳变 + 过度上拉 + 底部空白。完整推演与
-  // 三个症状的对应关系见 `group-capped.ts` 的文件头。
-  //
-  // 副作用：`next-input` 模式下折叠后的 body 保持 max-height。它此时带
-  // `hidden="until-found"`、内容不渲染，视觉上无差异。
-  const capped = isBodyCapped(grouped)
+  // 高度上限只作用于读者打开的 group；正在关闭的 body 保留平铺高度，
+  // 使过渡从屏幕上的样子开始，而不是先跳到上限。（官方逐字保留）
+  const capped = grouped && (!deferCompletedTurns || open)
   const classes = [css.body, !capped ? css.expandedBody : '',
     capped && edges.canScrollUp ? css.fadeTop : '', capped && edges.canScrollDown ? css.fadeBottom : '']
   return (

@@ -339,10 +339,13 @@ data-chat-motion={deferCompletedTurns && scroll.initialized && (...) ? '' : unde
 **所以默认配置下连官方的 group 折叠也是瞬时的**——插件没有弄坏动画，只是把折叠
 频率放大到了跳变会被眼睛捕捉的程度。
 
-**已解决**：把「设置 → 通用 → 工作步骤收起时机」改成「下次有新消息时」，
-group 折叠动画与外层平滑滚动就都回来了。但这一改会暴露官方的另一个 bug
-（`capped` 随 `open` 翻转，导致动画测到错误高度），已在本插件侧修正——
-见 `group-capped.ts` 的文件头与 [MOTION-PLAN.md](MOTION-PLAN.md) 第 2.2 节。
+**部分改善**：把「设置 → 通用 → 工作步骤收起时机」改成「下次有新消息时」后，
+**一轮运行中**的折叠有动画、外层滚动也平滑了。但动画只在
+`running || motionTail || pendingInputs` 窗口内存在；历史轮次与手动操作仍无动画。
+
+这一改还会暴露官方的另一个 bug（`capped` 随 `open` 翻转，导致动画测到错误高度，
+表现为跳变 + 过度上拉 + 底部空白）。**该 bug 属官方，本插件不修**——
+推演见 [MOTION-PLAN.md](MOTION-PLAN.md) 第 2.2 节与其中的"还原决定"。
 
 **思考块仍未解决**：`DisclosureRow` 是 `{open && children}`，没有高度过渡通道，
 `[data-chat-motion]` 对完全不在 `useFlowHidden` 链上的它无效。这一层需要改代码，

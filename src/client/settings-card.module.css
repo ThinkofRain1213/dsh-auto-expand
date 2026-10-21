@@ -61,3 +61,18 @@
   line-height: 18px;
   color: var(--dsw-alias-label-tertiary);
 }
+
+/*
+ * 被上层开关控制的设置项标签。
+ *
+ * 开关本体会自己变灰（官方 `Switch` 的 `:disabled` 有 `opacity: .5`），但旁边的
+ * 文字是普通标记，不处理就还是满对比度 —— 屏幕上读起来是"灰开关 + 黑字"，
+ * 像是坏了。DPG 的 `perProjectSpecGated` 那一行踩过同样的坑。
+ *
+ * 用专用 token `label-dimmed` 而不是 `opacity`：DPG 的记录（SETTINGS-SPEC 7.3）
+ * 说明 `opacity` 会让元素成为独立合成层，页面上任何一个 `Switch` 播放动画都会
+ * 触发一帧重合成，肉眼可见亮度抖动。颜色不会创建图层。
+ */
+.gated {
+  color: var(--dsw-alias-label-dimmed);
+}

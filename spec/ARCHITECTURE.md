@@ -249,9 +249,80 @@ export const GroupOpenContext = createContext<boolean>(true)
 </GroupOpenContext.Provider>
 ```
 
+**为什么放在 group 而不是 seat**：`groupPart === 'response'` 的渲染在 group 之外（`ChatFlow` 的 `kind: 'node'` 分支），此时无 provider，取默认 `true` 不影响——响应区没有 reasoning 块。
+
 消费点：`AutoReasoningRow` 所在路径（见 5.4）。
 
-**为什么放在 group 而不是 seat**：`groupPart === 'response'` 的渲染在 group 之外（`ChatFlow` 的 `kind: 'node'` 分支），此时无 provider，取默认 `true` 不影响——响应区没有 reasoning 块。
+#### 已知缺陷：Provider 传的是 `open`，而非 body 的真实可见性
+
+body 的隐藏条件是 `grouped && !open`（`AutoGroupSeat.tsx:220` 的
+`useGroupAction(grouped && !open, reveal)`），所以 **body 可见 = `!grouped || open`**。
+而 Provider 传的是 `open`。
+
+在 `grouped === false` 的场景——`detailed` 模式下运行中的 Turn、以及 `verbose` 模式
+——body 视觉上完全平铺展开（无 400px 上限、不带 `hidden`），但 Provider 仍传
+`open === false`。后果：这两类模式下思考块**不会**自动展开，即使它明明可见。
+
+**未修复**，因为修它会连带改变"大段关 + 思考开"这一组合的语义（见 4.7）。
+
+### 4.7 两个开关的耦合关系（当前行为）
+
+```
+groupAutoExpand ──→ autoOpen = groupAutoExpand && !closed
+                          ↓
+                     open ──→ GroupOpenContext ──→ groupOpen
+                                                      ↓
+                          reasoningAutoExpand && running && groupOpen
+```
+
+| 大段 | 思考 | 实际行为 |
+|---|---|---|
+| 开 | 开 | 大段运行中展开；思考流式时在其中展开；段落结束一起折 |
+| 开 | 关 | 大段展开；思考保持官方折叠态（只显示首行摘要） |
+| **关** | **开** | **两层都折**——思考开关是空操作 |
+| 关 | 关 | 等于官方 |
+
+第三行是设计后果而非 bug：思考块在大段体内，大段折叠时它不可见，因此"思考自动
+展开"没有意义。
+
+**已处理（2026-10-22）**：这一行曾经是 UI 撒谎——两个开关长得完全独立，用户会
+反复拨弄一个永远不生效的开关。现在大段关闭时思考行被门控（`disabled` + `.gated`
+变灰 + 描述换成「由「展开工作大段」控制，现已关闭」，`checked` 保留原值），
+推导逻辑在 `settings-card-state.ts`，写法照 DPG 先例（`spec/SETTINGS-SPEC.md` 7.2.1）。
+
+#### 被否决的方案：反向耦合
+
+曾考虑让思考流式**驱动**大段展开：
+
+```
+思考流式中 → 打开所在大段 + 展开思考
+思考结束   → 折叠该大段
+同段再思考 → 再打开 + 再展开
+```
+
+**否决理由**——`process-groups.ts:147-164` 里 reasoning 成员与 tool-call 成员进的是
+**同一个 group**，只有出现 reply 或走到 process 边界才 `flush(true)`：
+
+```
+group = [reasoning₁, tool₁, reasoning₂, tool₂, reasoning₃, ...]
+```
+
+所以该模型在一轮对话里会开合三四次（每次一条 160ms 折叠动画 + 一次滚动定位），
+而且**工具执行期间大段是折叠的**——工具恰恰是最想看的东西。
+
+更根本的是：**渲染结构上思考与大段不可分离**（同在 `.body` 里），想只露思考就得
+再加一层过滤，那是另一个量级的改动。而"大段开 + 思考开"已经给了同样的可见性，
+只是多露了工具输出。
+
+#### 若将来仍要正交化
+
+最简单的做法是让思考开关在大段折叠时**接管 body 的展开**：
+
+```ts
+open = groupAutoExpand && !closed || reasoningAutoExpand && hasRunningReasoning
+```
+
+或者直接合成一个三态选择（关闭 / 仅思考 / 全部）。
 
 ---
 

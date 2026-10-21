@@ -256,6 +256,43 @@ DPG 的门控规范：**被门控的标签必须自己灰化**，因为 `Switch`
 }
 ```
 
+`Switch` 的官方契约（`ui-primitives/src/Switch.tsx:7-26`）明确写了两个可选参数，门控场景两个都要用：
+
+| 参数 | 用途 |
+|---|---|
+| `disabled` | 拒绝输入；`Switch.module.css` 里是 `cursor: default` + `opacity: 0.5` |
+| `title` | **"为什么这个开关被锁住"** 的悬停文本（官方原文：`usually why the toggle is locked`） |
+
+### 7.2.1 完整的门控写法（三条一起做）
+
+DPG `settings-card.tsx:459-475` 的门控行是范本：
+
+```tsx
+<div className={enabled ? css.title : `${css.title} ${css.gated}`}>{t('title')}</div>
+<div className={enabled ? css.desc : `${css.desc} ${css.gated}`}>
+  {enabled ? t('desc') : t('gatedDesc')}     {/* ← 描述换成"由谁控制" */}
+</div>
+<Switch
+  checked={storedValue}                        {/* ← 保留原值，不强制 false */}
+  onChange={...}
+  label={t('title')}
+  disabled={!enabled}
+  {...enabled ? {} : { title: t('gatedDesc') }}
+/>
+```
+
+三条各自防的问题：
+
+| 做法 | 不做会怎样 |
+|---|---|
+| 标签 + 描述加 `.gated` | 屏幕上是"灰开关 + 黑字"，读起来像破了 |
+| 描述换成「由「X」控制，现已关闭」 | 灰掉的控件没有解释，用户不知道该去开哪个 |
+| `checked` 保留原值 | 用户重新打开上层开关后，之前的选择被悄悄丢弃 |
+
+**DSH 原生 token 用的是 `label-dimmed`**（`ui-theme/src/design-platform.css:217` light
+/ `:335` dark），不需要 `color-mix` 自算——那是 DPG 处理卡片面时的做法，纯文字用
+现成 token 即可。
+
 ### 7.3 禁用态：用颜色而非 `opacity`
 
 DPG 记录了一个重要陷阱：

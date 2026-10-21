@@ -15,6 +15,9 @@ export const zh = {
   workGroupDesc: '当前运行的一轮里，工作大段展开显示内容；该段结束后自动收起。',
   reasoningTitle: '展开思考过程',
   reasoningDesc: '思考内容在流式输出时展开；思考结束或所属大段收起时自动折叠。',
+  // 大段开关关闭时替换上面的描述。它点名**控制者**，这样灰掉的开关不会读作
+  // 坏掉的开关（DPG 同款做法，见 spec/SETTINGS-SPEC.md 第 7.3 节）。
+  reasoningGated: '由「展开工作大段」控制，现已关闭',
 } as const
 
 /** 英文文案。 */
@@ -23,6 +26,7 @@ export const en = {
   workGroupDesc: 'Show the body of each work group in the running turn; fold it once that group ends.',
   reasoningTitle: 'Expand reasoning',
   reasoningDesc: 'Open reasoning while it streams; fold it when reasoning ends or its group folds.',
+  reasoningGated: 'Controlled by "Expand work groups"; currently off',
 } as const
 
 /** 本命名空间的文案键。 */

@@ -12,14 +12,18 @@
  * `entriesOfSlot` 对 single slot 只返回首个 entry，第二个注册永远不会渲染。
  *
  * 当前阶段（P3）：flow 与 assistant-step 均已接入自动展开。
- * 工具行（`tool-call` 路径）在 P4 处理。
+ *
+ * 工具行（`tool-call` 路径）**不做自动展开**。原因见 spec/P4-ROLLBACK.md：
+ * 未注册专用 toolview 的工具（如 `pwsh`、`terminal_*`、`apply_patch`）
+ * 由官方 `GenericToolCard` 渲染，它是功能完整的主路径（terminal / diff /
+ * read / search / web 卡片），不是可省略的 fallback。接管 `tool-call`
+ * 就必须克隆其约 2900 行的依赖树，代价不成比例。
  */
 import type { ComponentType } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import { NOOP, wrapEntry, type StoredEntryLike } from './wrap.ts'
 import { AutoFlow } from './flow/AutoFlow.tsx'
 import { AutoAssistantNodeView } from './assistant/AutoAssistantNodeView.tsx'
-import { AutoToolCallTree } from './tool/AutoToolCallTree.tsx'
 
 /** 日志前缀。 */
 const TAG = '[dsh-auto-expand]'
@@ -49,9 +53,6 @@ const FLOW_TARGET = { slot: 'conversation.chat.flow' } as const
 /** 包裹目标：assistant-step（keyed slot）。 */
 const ASSISTANT_TARGET = { slot: 'conversation.chat.node', key: 'assistant-step' } as const
 
-/** 包裹目标：tool-call（keyed slot，由 ui-tool 包注册）。 */
-const TOOL_TARGET = { slot: 'conversation.chat.node', key: 'tool-call' } as const
-
 /**
  * 构造 flow 的包装器：返回 `AutoFlow`。
  *
@@ -76,19 +77,6 @@ function makeAutoFlow(_inner: ComponentType<never>): ComponentType<never> {
  */
 function makeAutoAssistant(_inner: ComponentType<never>): ComponentType<never> {
   return AutoAssistantNodeView as unknown as ComponentType<never>
-}
-
-/**
- * 构造 tool-call 的包装器：返回 `AutoToolCallTree`。
- *
- * 它是官方 `ToolCallTree` 的克隆：保留 phase 判定、keyed toolview 分派与
- * 递归子调用，只把**根调用**的 `useDisclosure` 换成受控版本，让工具行在
- * 运行时自动展开、返回后自动折叠。子调用保持官方默认折叠。
- * @param _inner - 官方 `ToolCallTree`（本实现完全替代它）。
- * @returns `AutoToolCallTree` 组件。
- */
-function makeAutoToolCall(_inner: ComponentType<never>): ComponentType<never> {
-  return AutoToolCallTree as unknown as ComponentType<never>
 }
 
 /**
@@ -122,12 +110,11 @@ function installWrappers(ctx: ClientContext): () => void {
   const sync = (): void => {
     attempt('flow', FLOW_TARGET, makeAutoFlow)
     attempt('assistant', ASSISTANT_TARGET, makeAutoAssistant)
-    attempt('tool', TOOL_TARGET, makeAutoToolCall)
   }
 
   sync()
   const off = ctx.on('slots/changed', (key: string) => {
-    if (key === FLOW_TARGET.slot || key === ASSISTANT_TARGET.slot || key === TOOL_TARGET.slot) sync()
+    if (key === FLOW_TARGET.slot || key === ASSISTANT_TARGET.slot) sync()
   })
 
   return () => {

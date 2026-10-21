@@ -48,7 +48,7 @@
     "build": "tsdown",
     "watch": "tsdown --watch",
     "typecheck": "tsc -p tsconfig.json --pretty false",
-    "test": "node --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs tests/tool-auto-open.spec.mjs",
+    "test": "node --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs",
     "smoke": "node scripts/smoke-client.mjs",
     "verify": "pnpm typecheck && pnpm build && pnpm test && pnpm smoke",
     "clean": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\""
@@ -73,7 +73,6 @@
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-tool": "0.2.1-rc.2",
     "@deepseek-ai/dsh-util-workspace-path": "0.2.1-rc.2",
     "@types/node": "^24.0.0",
     "@types/react": "~18.3.1",

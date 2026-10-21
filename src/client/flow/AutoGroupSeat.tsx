@@ -3,12 +3,13 @@
  *
  * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
  *
- * 修改点（三处，其余逐字保留）：
+ * 修改点（四处，其余逐字保留）：
  *   1. 本地 `useDisclosure()` → `useAutoDisclosure(!closed)`：body 默认展开，
  *      group 关闭时自动折叠一次（这是本插件的核心行为）。
- *   2. 新增自动展开时的滚动初始化：官方 `toggle` 里有 `initialize(...)`，
- *      但自动展开不经过它，必须显式补上。
+ *   2. 新增自动展开时的滚动定位：官方 `toggle` 里有 `initialize(...)`，
+ *      但自动展开不经过它，必须在同一帧显式补上（`initialize` + `realign`）。
  *   3. 新增 `GroupOpenContext.Provider`：把 body 展开状态下发给内层思考块。
+ *   4. `useProcessScroll` 解构出新增的 `realign`。
  *
  * 保留不动（关键）：
  *   - `capped` 计算 → 400px 高度上限
@@ -17,7 +18,7 @@
  *   - `useProcessScroll` → 内部滚动跟随与边缘渐变
  *   - 全部 `data-*` 属性 → 官方 CSS 与测试依赖
  */
-import { memo, useCallback, useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import {
   IconAgentPresetOutlineRegular, IconApiOutlineRegular, IconBrowseOutlineRegular, IconChevronDownOutlineRegular,
   IconChevronUpOutlineRegular, IconCodeOutlineRegular, IconEditOutlineRegular, IconGlobeOutlineRegular,
@@ -34,6 +35,7 @@ import { GroupOpenContext } from '../group-open-context.ts'
 import { AutoNodeSeat } from './AutoNodeSeat.tsx'
 import { chatRenderKey, hiddenOrCollapsing, processTitle } from './flow-utils.ts'
 import { useProcessScroll } from './use-process-scroll.ts'
+import { shouldAlignBody, type ScrollAlignState } from './scroll-align.ts'
 import css from './AutoGroupSeat.module.css'
 
 /** 座位 props：去掉 `nodeKey`/`groupPart` 后的 `AutoNodeSeat` props。 */
@@ -181,7 +183,7 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
   //
   // 开关关闭时 autoOpen 恒为 false，等价于官方的"始终折叠"。
   const autoOpen = settings.groupAutoExpand && !(closed === true)
-  const { open, setOpen, toggle: toggleDisclosure } = useAutoDisclosure(autoOpen)
+  const { open, setOpen, toggle: toggleDisclosure, following: followsAuto } = useAutoDisclosure(autoOpen)
   const firstKey = members?.[0]?.key ?? ''
   const bottom = props.useChatNodeBottom(firstKey)
   const deferCollapse = bottom === true && props.deferCollapse
@@ -218,23 +220,30 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
   const bodyRef = props.useGroupAction(grouped && !open, reveal)
   const contentRef = useRef<HTMLDivElement>(null)
   const bodyId = useId()
-  const { edges, events, initialize } = useProcessScroll(bodyRef, contentRef, open, grouped)
-  // ── 改动 2：自动展开的滚动初始化 ────────────────────────────────────────
+  const { edges, events, initialize, realign } = useProcessScroll(bodyRef, contentRef, open, grouped)
+  // ── 改动 2：自动展开的滚动定位 ──────────────────────────────────────────
   // 官方 `toggle` 在**手动**展开时调用 `initialize(...)`；自动展开不经过它，
-  // 若不补这一步，body 展开后会停在顶部，看不到最新进展。
+  // 若不补这一步，body 会停在 `scrollTop = 0`。
   //
-  // 判据必须是 `autoOpen` 的翻转，不能是 `open` 的翻转：`open` 同时受手动
-  // 覆盖影响，用它会导致手动展开也走到这里，抢掉 `toggle` 已设定的位置。
-  // 这会让**已完成**的 group 在手动展开时被强行滚到底部，与官方（滚到顶部）
-  // 不一致。
+  // 三处必须同时到位，缺一不可：
+  //   1. 判据用 `actual`（open ∥ grouped）而不是 `open` 单独：Turn 从"平铺"
+  //      变成"带 400px 上限"时（`grouped` 翻转），body 才第一次出现内部滚动。
+  //   2. 用 `useLayoutEffect` 而不是 `useEffect`：`useProcessScroll` 里消费
+  //      `initialize` 意图的是 ResizeObserver 回调，它早于被动副作用。
+  //   3. 调 `realign()` 把意图**立即**兑现：自动展开后若没有新的尺寸变化，
+  //      单靠 `initialize` 会永远等不到消费，定位就丢了。
   //
-  // 因此这里只在"自动从折叠变展开"时定位，且未关闭的 group 内容在增长，
-  // 从底部开始（与官方对 `closed === false` 的手动展开一致）。
-  const previousAutoOpen = useRef(autoOpen)
-  useEffect(() => {
-    if (!previousAutoOpen.current && autoOpen && grouped) initialize('bottom')
-    previousAutoOpen.current = autoOpen
-  }, [autoOpen, grouped, initialize])
+  // `followsAuto` 排除用户手动展开：那种情况由 `toggle` 自己决定位置
+  // （已完成的 group 滚到顶部，与官方一致）。判定逻辑见 `scroll-align.ts`。
+  const previousShape = useRef<ScrollAlignState | null>(null)
+  useLayoutEffect(() => {
+    const current = { open, grouped, followsAuto }
+    if (shouldAlignBody(previousShape.current, current)) {
+      initialize('bottom')
+      realign()
+    }
+    previousShape.current = current
+  }, [open, grouped, followsAuto, initialize, realign])
   const toggle = useCallback(() => {
     if (!open) initialize(closed === false ? 'bottom' : 'top')
     toggleDisclosure()

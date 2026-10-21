@@ -15,6 +15,13 @@ import { useCallback, useState } from 'react'
 export interface AutoDisclosure {
   /** 当前是否展开。 */
   readonly open: boolean
+  /**
+   * 当前展开状态是否仍跟随自动状态（即未被用户覆盖）。
+   *
+   * 用于区分"插件自动展开"与"用户手动展开"：前者需要补滚动定位，
+   * 后者必须交给官方 `toggle`，否则已完成的 group 会被强行滚到底部。
+   */
+  readonly following: boolean
   /** 用户显式设置展开状态。 */
   setOpen(open: boolean): void
   /** 用户切换展开状态。 */
@@ -29,7 +36,7 @@ export interface AutoDisclosure {
  * 此后 `autoOpen` 恒为 false，用户手动展开即永久保持。
  *
  * @param autoOpen - 当前"应当处于"的自动状态。
- * @returns 当前展开状态与用户操作。
+ * @returns 当前展开状态、是否仍跟随自动，以及用户操作。
  */
 export function useAutoDisclosure(autoOpen: boolean): AutoDisclosure {
   // 已观察到的 autoOpen。与当前值不同说明发生了自动转换。
@@ -51,5 +58,5 @@ export function useAutoDisclosure(autoOpen: boolean): AutoDisclosure {
     setOverride(prev => !(prev ?? autoOpen))
   }, [autoOpen])
 
-  return { open, setOpen, toggle }
+  return { open, following: override === undefined, setOpen, toggle }
 }

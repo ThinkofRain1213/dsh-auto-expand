@@ -56,6 +56,9 @@ function render(hookFn, autoOpen) {
 
 // ── 待测 hook（与 src/client/auto-disclosure.ts 逻辑一致）────────────────
 // 直接内联实现以避免引入 TS 编译步骤；每次改动源码必须同步这里。
+// 注意：`tests/scroll-align.spec.mjs` 与 `tests/process-scroll.spec.mjs`
+// 走的是**真实 import**，是更可靠的做法（`--experimental-transform-types`）。
+// 本文件保持内联只是因为 hook 需要 React dispatcher。
 function useAutoDisclosure(autoOpen) {
   const [seen, setSeen] = useState(autoOpen)
   const [override, setOverride] = useState(undefined)
@@ -66,7 +69,7 @@ function useAutoDisclosure(autoOpen) {
   const open = override ?? autoOpen
   const setOpen = useCallback((next) => { setOverride(next) })
   const toggle = useCallback(() => { setOverride(prev => !(prev ?? autoOpen)) })
-  return { open, setOpen, toggle }
+  return { open, following: override === undefined, setOpen, toggle }
 }
 
 // ── 用例 ────────────────────────────────────────────────────────────────
@@ -185,4 +188,39 @@ test('autoOpen 不变时 setOpen 不触发额外的自动转换', () => {
   result.setOpen(true) // 与 autoOpen 相同的值
   result = render(useAutoDisclosure, true)
   assert.equal(result.open, true)
+})
+
+// ── following：区分"自动展开"与"用户手动展开" ────────────────────────────
+// 滚动定位只在 following 为真时接管；否则会抢掉官方 toggle 的选择。
+
+test('following：初始跟随自动状态', () => {
+  resetHooks()
+  assert.equal(render(useAutoDisclosure, true).following, true)
+  resetHooks()
+  assert.equal(render(useAutoDisclosure, false).following, true)
+})
+
+test('following：任何手动操作都表示用户接管', () => {
+  resetHooks()
+  let result = render(useAutoDisclosure, true)
+  result.setOpen(false)
+  result = render(useAutoDisclosure, true)
+  assert.equal(result.following, false, '手动折叠后不再跟随')
+
+  resetHooks()
+  result = render(useAutoDisclosure, false)
+  result.toggle()
+  result = render(useAutoDisclosure, false)
+  assert.equal(result.following, false, '手动展开后不再跟随')
+})
+
+test('following：autoOpen 变化后重新跟随', () => {
+  resetHooks()
+  let result = render(useAutoDisclosure, true)
+  result.setOpen(false)
+  result = render(useAutoDisclosure, true)
+  assert.equal(result.following, false)
+  // autoOpen 翻转会丢弃覆盖 → 重新跟随自动策略
+  result = render(useAutoDisclosure, false)
+  assert.equal(result.following, true)
 })

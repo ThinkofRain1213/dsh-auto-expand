@@ -11,13 +11,14 @@
  * 官方 entry 已声明我们需要的子 slot，重新注册会被 SlotCore 拒绝；而
  * `entriesOfSlot` 对 single slot 只返回首个 entry，第二个注册永远不会渲染。
  *
- * 当前阶段（P2）：flow 已接入自动展开；assistant-step 仍为 pass-through，
- * 第三层在 P3 接入。
+ * 当前阶段（P3）：flow 与 assistant-step 均已接入自动展开。
+ * 工具行（`tool-call` 路径）在 P4 处理。
  */
-import { createElement, type ComponentType } from 'react'
+import type { ComponentType } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import { NOOP, wrapEntry, type StoredEntryLike } from './wrap.ts'
 import { AutoFlow } from './flow/AutoFlow.tsx'
+import { AutoAssistantNodeView } from './assistant/AutoAssistantNodeView.tsx'
 
 /** 日志前缀。 */
 const TAG = '[dsh-auto-expand]'
@@ -48,20 +49,6 @@ const FLOW_TARGET = { slot: 'conversation.chat.flow' } as const
 const ASSISTANT_TARGET = { slot: 'conversation.chat.node', key: 'assistant-step' } as const
 
 /**
- * P3 之前的 pass-through 包装器：转发全部 props，不改变行为。
- *
- * @param inner - 被包裹的原组件。
- * @returns 转发全部 props 的包装组件。
- */
-function makePassThrough(inner: ComponentType<never>): ComponentType<never> {
-  const PassThrough = (props: never): ReturnType<typeof createElement> =>
-    createElement(inner as ComponentType<never>, props)
-  const name = (inner as { displayName?: string }).displayName ?? inner.name
-  PassThrough.displayName = `AutoExpand(${name === '' ? 'Anonymous' : name})`
-  return PassThrough
-}
-
-/**
  * 构造 flow 的包装器：返回 `AutoFlow`。
  *
  * `AutoFlow` 是官方 `ChatFlow` 的克隆，只把两个 seat 组件换成自动展开版本。
@@ -72,6 +59,19 @@ function makePassThrough(inner: ComponentType<never>): ComponentType<never> {
  */
 function makeAutoFlow(_inner: ComponentType<never>): ComponentType<never> {
   return AutoFlow as unknown as ComponentType<never>
+}
+
+/**
+ * 构造 assistant-step 的包装器：返回 `AutoAssistantNodeView`。
+ *
+ * 它是官方 `AssistantNodeView` 的重写：保留全部 props 与 `reasoningHidden`
+ * 计算，只把内层 Markdown 层换成 `AutoAssistantMarkdown`，让思考行接入
+ * 自动展开策略。
+ * @param _inner - 官方 `AssistantNodeView`（本实现完全替代它）。
+ * @returns `AutoAssistantNodeView` 组件。
+ */
+function makeAutoAssistant(_inner: ComponentType<never>): ComponentType<never> {
+  return AutoAssistantNodeView as unknown as ComponentType<never>
 }
 
 /**
@@ -104,7 +104,7 @@ function installWrappers(ctx: ClientContext): () => void {
 
   const sync = (): void => {
     attempt('flow', FLOW_TARGET, makeAutoFlow)
-    attempt('assistant', ASSISTANT_TARGET, makePassThrough)
+    attempt('assistant', ASSISTANT_TARGET, makeAutoAssistant)
   }
 
   sync()

@@ -11,11 +11,13 @@
 import type {
   ChatNodeHookContext, ChatNodeOwnerProps, ChatFlowSlotProps, ChatNodeViewProps,
   ChatViewSlotProps, UsePresentation, UseDisclosure, UseChatNodeTurnData,
+  PresentationInjected, TurnTailOwnerProps, UseGroupAction,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 
 export type {
   ChatNodeHookContext, ChatNodeOwnerProps, ChatFlowSlotProps, ChatNodeViewProps,
   ChatViewSlotProps, UsePresentation, UseDisclosure, UseChatNodeTurnData,
+  PresentationInjected, TurnTailOwnerProps, UseGroupAction,
 }
 
 /**

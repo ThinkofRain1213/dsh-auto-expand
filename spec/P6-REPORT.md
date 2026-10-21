@@ -200,7 +200,26 @@ SyntaxError [ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX]: TypeScript parameter property i
 | `process-scroll.spec.mjs` | **真实 import** `flow/use-scroll-follow.ts`（`ScrollFollow` 状态机） |
 | `settings-write.spec.mjs` | **真实 import** `settings-write.ts` |
 | `scroll-init.spec.mjs` | 真实 import + 固化三代判据的演进 |
+| `contract-consistency.spec.mjs` | 读取源码与 `package.json`，校验跨文件字符串契约 |
+| `drift-manifest.spec.mjs` | 校验克隆清单与源码双向对齐 |
 | `auto-disclosure.spec.mjs` | 仍为内联实现（hook 需要 React dispatcher），已在文件头注明 |
+
+### 6.1 跨文件字符串契约
+
+P5 排查中花时间最久的是「设置卡片 key 必须是包名」——写成 entry id 时整段不渲染，
+控制台干净得像一切正常。这类字符串没有任何类型系统能串起来，因此逐条固化：
+
+| 契约 | 写错的后果 |
+|---|---|
+| patch `id` === 两端设置命名空间 | 两个开关写进错误的命名空间，静默失效 |
+| 设置卡片 `key` === 包名 | 插件详情页不渲染卡片，无报错 |
+| `locale` 座位 === `LocaleNamespaceMap` 声明 | 组件拿不到 `t`，渲染时崩 |
+| Host 字段名 === Client 字段名 | 写入被静默忽略 |
+| 两端默认值一致 | 界面显示与初始行为不一致 |
+| `schemastery` 在 `dependencies` | 用户安装后 `ERR_MODULE_NOT_FOUND`，整个插件不加载 |
+| `engines.dsh` 覆盖克隆时的上游版本 | 装到不兼容版本上，行为未定义 |
+
+测试是**双向验证过**的：把 `key` 改成 `auto-expand` 后测试立刻失败，恢复后通过。
 
 ---
 
@@ -209,9 +228,9 @@ SyntaxError [ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX]: TypeScript parameter property i
 ```
 pnpm typecheck   ✅ 0 error
 pnpm build       ✅ index.js 1.72 kB / client.js 132.4 kB
-pnpm test        ✅ 68 pass / 0 fail
+pnpm test        ✅ 82 pass / 0 fail
 pnpm smoke       ✅ 结构校验通过
-pnpm pack:check  ✅ 发布产物自检通过（54 个文件）
+pnpm pack:check  ✅ 发布产物自检通过（55 个文件）
 pnpm drift       ✅ 无漂移：29 个上游来源全部与记录一致
 ```
 
@@ -226,6 +245,8 @@ pnpm drift       ✅ 无漂移：29 个上游来源全部与记录一致
 | `scroll-align` | 9 | 当前定位判据 |
 | `process-scroll` | 9 | `ScrollFollow` 状态机（真实代码） |
 | `settings-write` | 7 | 乐观写入与三条回滚路径 |
+| `contract-consistency` | 10 | 跨文件字符串契约 |
+| `drift-manifest` | 4 | 克隆清单完整性（含防空转断言） |
 
 ---
 
@@ -236,11 +257,13 @@ pnpm drift       ✅ 无漂移：29 个上游来源全部与记录一致
 | `scripts/upstream-manifest.mjs` | 克隆文件 ← 上游出处的清单（唯一事实源） |
 | `scripts/upstream-io.mjs` | checkout 定位、规范化哈希、记录读写 |
 | `scripts/record-upstream.mjs` | 生成 `spec/upstream.json` |
-| `scripts/check-drift.mjs` | 漂移检查（退出码 0/1/2） |
+| `scripts/check-drift.mjs` | 漂移检查（退出码 0/1/2），含清单与记录一致性守卫 |
 | `scripts/check-pack.mjs` | 发布产物自检 |
 | `spec/upstream.json` | 由脚本生成，记录 23 个文件 / 29 个来源 |
 | `src/client/settings-write.ts` | 乐观写入与回滚（纯函数） |
 | `tests/settings-write.spec.mjs` | 7 项 |
+| `tests/contract-consistency.spec.mjs` | 10 项 |
+| `tests/drift-manifest.spec.mjs` | 4 项 |
 | `CHANGELOG.md` | 首个功能完整版本的变更记录 |
 
 ---

@@ -59,6 +59,7 @@
     "drift": "node scripts/check-drift.mjs",
     "drift:record": "node scripts/record-upstream.mjs",
     "pack:check": "pnpm build && node scripts/check-pack.mjs",
+    "prepack": "pnpm build",
     "clean": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\""
   },
   "peerDependencies": {

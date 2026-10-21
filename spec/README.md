@@ -8,6 +8,7 @@
 | [PLAN.md](PLAN.md) | 6 个阶段的规划、任务分解、验收标准、工程规范、风险治理、后续演进 | 想了解"项目怎么推进" |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 面向实现的架构规格：组件树、数据流、接口契约、关键算法、实现顺序 | 要动手写代码时 |
 | [SETTINGS-SPEC.md](SETTINGS-SPEC.md) | 插件详情页设置卡片的规范（槽位、间距、字体、控件、注册写法），摘自 dsh-project-groups 的实测 | 改设置页时 |
+| [SETTINGS-EXTENSION.md](SETTINGS-EXTENSION.md) | 新增「完整展示当前轮」开关与「历史轮次最大高度」输入的设计（**未实施**） | 要加新设置项时 |
 | [MOTION-PLAN.md](MOTION-PLAN.md) | 折叠动画方案（**未实施**）：官方 flow-motion 的闸门为何默认不生效、三层滚动的真实差异、自建最小动画的接入点与坑 | 处理抖动问题时 |
 
 ## 阶段报告

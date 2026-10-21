@@ -22,31 +22,6 @@
 }
 
 /*
- * 一个分组：标题 + 它介绍的若干行。
- * `gap: 8px` 是标题与其下方行之间的距离。
- */
-.group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px 0;
-}
-
-/*
- * 分组标题：13px/**600**。
- *
- * 与 `.title` 同字号但重一档 —— 这是官方插件卡片的层级（子智能体：
- * 分节标题 13/600，字段标签 13/500）。这一档字重差就是"标题"与
- * "另一个行名称"的区别。
- */
-.groupTitle {
-  color: var(--dsw-alias-label-primary);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 19.5px;
-}
-
-/*
  * 一行设置：名称/描述在左，控件在右。
  * 几何照官方设置行（`PermissionRow` / `PreferenceRow`）。
  */

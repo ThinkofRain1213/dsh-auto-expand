@@ -11,18 +11,16 @@ export const SETTINGS_NS = 'autoExpand'
 
 /** 中文文案。 */
 export const zh = {
-  sectionTitle: '自动展开',
-  groupTitle: '展开工作大段',
-  groupDesc: '当前运行的一轮里，工作大段展开显示内容；该段结束后自动收起。',
+  workGroupTitle: '展开工作大段',
+  workGroupDesc: '当前运行的一轮里，工作大段展开显示内容；该段结束后自动收起。',
   reasoningTitle: '展开思考过程',
   reasoningDesc: '思考内容在流式输出时展开；思考结束或所属大段收起时自动折叠。',
 } as const
 
 /** 英文文案。 */
 export const en = {
-  sectionTitle: 'Auto-expand',
-  groupTitle: 'Expand work groups',
-  groupDesc: 'Show the body of each work group in the running turn; fold it once that group ends.',
+  workGroupTitle: 'Expand work groups',
+  workGroupDesc: 'Show the body of each work group in the running turn; fold it once that group ends.',
   reasoningTitle: 'Expand reasoning',
   reasoningDesc: 'Open reasoning while it streams; fold it when reasoning ends or its group folds.',
 } as const

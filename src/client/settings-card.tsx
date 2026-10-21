@@ -9,7 +9,8 @@
  * 样式严格遵循 DPG 的设置页规范（`spec/SETTINGS-SPEC.md`）：
  *  - `.stack` 包装器是必需的：官方 `detailSection` 容器给子元素 12px gap，
  *    若本卡片返回 Fragment，所有块会被塞进那个间隔；
- *  - 字体三级：`.title` 13/500、`.groupTitle` 13/600、`.desc` 12/400；
+ *  - **只有两行开关，没有分组标题**（页面顶部已有插件名与描述）；
+ *  - 字体两级：`.title` 13/500、`.desc` 12/400；
  *  - 行内边距 16px 0，标题↔描述 6px；
  *  - 开关用官方 `Switch` 原语。
  */
@@ -52,6 +53,9 @@ function SwitchRow({ title, description, checked, onChange }: {
 /**
  * 渲染两个自动展开开关。
  *
+ * 只有两行开关，**没有分组标题**：插件详情页顶部已经写着插件名和描述，
+ * 再加一个「自动展开」小标题是重复信息。
+ *
  * 设置状态来自模块级 `settingsSource`（见 `settings.ts`），因此本卡片与
  * 渲染层的展开策略读的是**同一个**快照，不可能不一致。
  * @param props - 槽位运行时与 locale 座位。
@@ -61,21 +65,18 @@ export function SettingsCard({ t }: SettingsCardProps) {
   const settings = useAutoExpandSettings()
   return (
     <div className={css.stack}>
-      <div className={css.group}>
-        <div className={css.groupTitle}>{t('sectionTitle' as SettingsKey)}</div>
-        <SwitchRow
-          title={t('groupTitle' as SettingsKey)}
-          description={t('groupDesc' as SettingsKey)}
-          checked={settings.groupAutoExpand}
-          onChange={next => { void setAutoExpandSetting('groupAutoExpand', next) }}
-        />
-        <SwitchRow
-          title={t('reasoningTitle' as SettingsKey)}
-          description={t('reasoningDesc' as SettingsKey)}
-          checked={settings.reasoningAutoExpand}
-          onChange={next => { void setAutoExpandSetting('reasoningAutoExpand', next) }}
-        />
-      </div>
+      <SwitchRow
+        title={t('workGroupTitle' as SettingsKey)}
+        description={t('workGroupDesc' as SettingsKey)}
+        checked={settings.groupAutoExpand}
+        onChange={next => { void setAutoExpandSetting('groupAutoExpand', next) }}
+      />
+      <SwitchRow
+        title={t('reasoningTitle' as SettingsKey)}
+        description={t('reasoningDesc' as SettingsKey)}
+        checked={settings.reasoningAutoExpand}
+        onChange={next => { void setAutoExpandSetting('reasoningAutoExpand', next) }}
+      />
     </div>
   )
 }

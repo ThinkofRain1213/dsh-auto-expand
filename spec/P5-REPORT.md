@@ -27,7 +27,7 @@
 |---|---|
 | `src/index.ts` | Host 半边：`Config` schema（两个 boolean，默认 `true`）+ 页面策略 `auto: false` |
 | `src/client/settings.ts` | 模块级 `settingsSource`（`SnapshotStore`）+ 表单接管 + 乐观写入 |
-| `src/client/settings-card.tsx` | 设置卡片：一个分组标题 + 两行 `SwitchRow` |
+| `src/client/settings-card.tsx` | 设置卡片：只有两行 `SwitchRow`，无分组标题 |
 | `src/client/settings-card.module.css` | 按 `spec/SETTINGS-SPEC.md` 实测值写的样式 |
 | `src/client/locales.ts` | `autoExpand` 命名空间的双语字典 + `LocaleNamespaceMap` 声明合并 |
 | `src/client/contract/slot-declarations.ts` | 本地声明 `plugins.bundle.config` 槽位（避免安装 plugin-manager 的整棵树） |
@@ -157,12 +157,14 @@ smoke 的 fake ctx 需要同时支持 `ctx.<name>` 与 `ctx.get('<name>')` 两�
 ## 6. 真机测试清单（用户执行）
 
 1. 打开「侧栏 → 插件」，找到 **dsh-auto-expand**，进详情页；
-2. 确认描述与「包含的组件」之间出现卡片：一个分组标题 + 两行开关，**没有**官方自动生成的表单区；
+2. 确认描述与「包含的组件」之间出现卡片：**只有两行开关**，没有分组标题，**没有**官方自动生成的表单区；
 3. 关掉「group 自动展开」→ 新开一轮对话，group body 应是官方默认折叠态；
 4. 关掉「思考自动展开」→ 思考块应是官方默认折叠态；
 5. 两个都关掉 → 完全等于官方行为（插件只剩"不改变任何东西"）；
 6. 重启 DSH → 两个开关的位置保持不变；
-7. 深浅色主题各看一遍：分组标题 13/600、行标题 13/500、描述 12/400，间距 16px 0 / 6px，无重复分隔线。
+7. 深浅色主题各看一遍：行标题 13/500、描述 12/400，行内边距 16px 0、标题↔描述 6px，无重复分隔线。
+
+> **修正记录**：初版按 DPG 规范加了分组标题「自动展开」（13/600）。真机测试后用户要求去掉——插件详情页顶部已经有插件名和描述，再加一个分组标题是重复信息。最终形态是两行开关直接落在卡片里。
 
 ---
 

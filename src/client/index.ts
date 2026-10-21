@@ -3,21 +3,21 @@
  *
  * 本插件不注册任何 slot，而是**原地包裹**两个已注册的渲染组件：
  *
- *  1. `conversation.chat.flow`        —— 承载第二层（process group body）的展开策略
+ *  1. `conversation.chat.flow`        —— 第二层（process group body）的展开策略
  *  2. `conversation.chat.node`
- *     key `assistant-step`            —— 承载第三层（思考块）的展开策略
+ *     key `assistant-step`            —— 第三层（思考块）的展开策略（P3）
  *
  * 选择原地包裹而非重新注册的原因见 `wrap.ts` 与 `spec/DESIGN.md` 第 4 节：
  * 官方 entry 已声明我们需要的子 slot，重新注册会被 SlotCore 拒绝；而
  * `entriesOfSlot` 对 single slot 只返回首个 entry，第二个注册永远不会渲染。
  *
- * P1 阶段：两个包裹点都是 **pass-through**（原样渲染），只验证包裹技法本身
- * 可行——能找到 entry、能替换组件、新组件能拿到完整的 renderSlot / inject /
- * store / locale props、卸载后能还原。行为与官方完全一致。
+ * 当前阶段（P2）：flow 已接入自动展开；assistant-step 仍为 pass-through，
+ * 第三层在 P3 接入。
  */
 import { createElement, type ComponentType } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import { NOOP, wrapEntry, type StoredEntryLike } from './wrap.ts'
+import { AutoFlow } from './flow/AutoFlow.tsx'
 
 /** 日志前缀。 */
 const TAG = '[dsh-auto-expand]'
@@ -30,10 +30,7 @@ const TAG = '[dsh-auto-expand]'
  */
 export const inject = ['slots']
 
-/**
- * 包裹目标形状。`ctx.slots` 的类型来自 `@deepseek-ai/dsh-client-ui-slots` 的
- * 声明合并，这里只取用到的两个方法，避免把整个 registry 类型拖进来。
- */
+/** `ctx.slots` 的最小形状：只取用到的 `entries`。 */
 interface SlotsService {
   entries(key: string): readonly StoredEntryLike[]
 }
@@ -51,23 +48,30 @@ const FLOW_TARGET = { slot: 'conversation.chat.flow' } as const
 const ASSISTANT_TARGET = { slot: 'conversation.chat.node', key: 'assistant-step' } as const
 
 /**
- * 构造一个 pass-through 包装器。
+ * P3 之前的 pass-through 包装器：转发全部 props，不改变行为。
  *
- * 它接受被包裹的原组件，返回一个转发全部 props 的新组件。P1 阶段用它验证
- * 包裹链路；后续阶段会在这里换成真正的实现（AutoFlow / AutoAssistantNodeView）。
- *
- * 刻意不做 memo：包装层只转发 props，memo 与否不影响正确性，而原组件本身
- * 已经是 memo 的，重复 memo 只会增加比较成本。
  * @param inner - 被包裹的原组件。
  * @returns 转发全部 props 的包装组件。
  */
 function makePassThrough(inner: ComponentType<never>): ComponentType<never> {
   const PassThrough = (props: never): ReturnType<typeof createElement> =>
     createElement(inner as ComponentType<never>, props)
-  // 调试用：让 React DevTools 显示来源，也让重复包裹在日志里可辨认。
   const name = (inner as { displayName?: string }).displayName ?? inner.name
   PassThrough.displayName = `AutoExpand(${name === '' ? 'Anonymous' : name})`
   return PassThrough
+}
+
+/**
+ * 构造 flow 的包装器：返回 `AutoFlow`。
+ *
+ * `AutoFlow` 是官方 `ChatFlow` 的克隆，只把两个 seat 组件换成自动展开版本。
+ * 它需要官方 entry 的全部 props（含 `renderSlot`、`useGroupAction`、`useStore`），
+ * 这些都由包裹保留的 inject/children 声明自动提供。
+ * @param _inner - 官方 `ChatFlow`（本实现完全替代它，不使用）。
+ * @returns `AutoFlow` 组件。
+ */
+function makeAutoFlow(_inner: ComponentType<never>): ComponentType<never> {
+  return AutoFlow as unknown as ComponentType<never>
 }
 
 /**
@@ -81,26 +85,26 @@ function makePassThrough(inner: ComponentType<never>): ComponentType<never> {
  */
 function installWrappers(ctx: ClientContext): () => void {
   const restores: Array<() => void> = []
-  // 每个目标只包裹一次；包裹成功后置位，避免 slots/changed 反复触发重复包裹。
   const done = new Set<string>()
 
   /**
    * 尝试包裹一个目标。
    * @param id - 去重标识。
    * @param target - slot 名与可选 key。
+   * @param make - 包装器工厂。
    */
-  const attempt = (id: string, target: { slot: string; key?: string }): void => {
+  const attempt = (id: string, target: { slot: string; key?: string }, make: (inner: ComponentType<never>) => ComponentType<never>): void => {
     if (done.has(id)) return
     const entries = ctx.slots.entries(target.slot)
-    const restore = wrapEntry(entries, target, makePassThrough as never, TAG)
+    const restore = wrapEntry(entries, target, make as never, TAG)
     if (restore === NOOP) return
     done.add(id)
     restores.push(restore)
   }
 
   const sync = (): void => {
-    attempt('flow', FLOW_TARGET)
-    attempt('assistant', ASSISTANT_TARGET)
+    attempt('flow', FLOW_TARGET, makeAutoFlow)
+    attempt('assistant', ASSISTANT_TARGET, makePassThrough)
   }
 
   sync()

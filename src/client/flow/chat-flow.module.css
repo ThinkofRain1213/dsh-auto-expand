@@ -1,0 +1,124 @@
+/**
+ * 克隆自 `chat/ChatView.module.css`（265 行）中与 flow 行相关的部分。
+ *
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ *
+ * 只保留 `AutoNodeSeat`、`AutoFlow`（RunningStatus / RunningWhaleTail）用到的类。
+ * 选择器里的 `.column` 依赖 `ChatView` 的列容器，本插件不替换 `ChatView`，
+ * 因此这些规则通过 `[data-slot="conversation.chat.flow"]` 与 `:global` 生效，
+ * 与官方一致。
+ */
+
+/* Settled-flow 身份边界。在成为虚拟化器的自然测量/挂载单元前保持中性，
+   不改变列间距。 */
+.flowItem {
+  min-width: 0;
+}
+
+/* flow slot 的 display:contents 锚点保留布局，但不保留选择器祖先关系。
+   `hidden="until-found"` 保留可搜索的零高度盒；隐藏与空座位不贡献间距。 */
+:global([data-slot="conversation.chat.flow"]) > :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty)))
+  ~ :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))) {
+  margin-top: var(--dsh-chat-flow-gap, 6px);
+}
+
+/* Process 行之间相距 6px；Assistant 回复与邻居相隔 12px。 */
+.flowItem[data-chat-group-part="response"] {
+  --dsh-chat-flow-gap: 12px;
+}
+
+:global([data-slot="conversation.chat.flow"]) > [data-chat-group-part="response"]:not([hidden]):not(:empty)
+  + :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))):not(.running) {
+  --dsh-chat-flow-gap: 12px;
+}
+
+/* Turn header 与它的输入及后续内容有 16px 间距。 */
+.flowItem[data-chat-flow-kind="turn-process"],
+.flowItem[data-turn-process-answer],
+:global([data-slot="conversation.chat.flow"]) > [data-chat-flow-kind="turn-process"] + :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))):not(.running) {
+  --dsh-chat-flow-gap: 16px;
+}
+
+/* 空座位（包括保留的空 slot 锚点）保留 Turn 查找能力，但不贡献高度与兄弟间距。 */
+.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty)) {
+  height: 0;
+}
+
+/* 运行指示器：底部状态行。 */
+.running {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  --dsh-chat-flow-gap: 12px;
+  --dsw-alias-label-shimmer: var(--dsw-alias-label-deep-diving-shimmer);
+  color: var(--dsw-alias-label-deep-diving);
+  font-size: calc(var(--dsh-content-font-size, 14px) - 2px);
+  line-height: calc(22px + var(--dsh-content-font-delta, 0px));
+}
+
+/* 状态之前的最后一个可见行必须含输出而非输入。隐藏与空座位不分隔用户消息与状态。 */
+:global([data-slot="conversation.chat.flow"]) > :nth-last-child(2 of :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty)))):is(
+  .flowItem:not([data-chat-flow-kind="user"]):not([data-chat-flow-kind="steering"]):not([data-chat-flow-kind="turn-trigger"]),
+  [data-chat-group-key]
+) ~ .running > .runningDivider {
+  display: block;
+}
+
+.runningDivider {
+  display: none;
+  width: 100%;
+  height: 0.5px;
+  margin: 8px 0 10px;
+  background: color-mix(in srgb, var(--dsw-alias-border-l1) 75%, var(--dsw-alias-border-l2));
+  pointer-events: none;
+}
+
+.runningContent {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
+
+.runningText {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.runningIcon {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: calc(14px + var(--dsh-content-font-delta, 0px));
+  height: calc(14px + var(--dsh-content-font-delta, 0px));
+  /* 固定占位容纳动画的布局与绘制。 */
+  contain: strict;
+  overflow: hidden;
+}
+
+.runningWhaleAnimated {
+  display: none;
+  position: absolute;
+  inset: 0;
+}
+
+.runningWhaleStill {
+  display: initial;
+}
+
+@supports (mask-mode: alpha) and (mask-image: url('')) {
+  @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+    .runningWhaleAnimated {
+      display: block;
+      background: currentColor;
+      mask: url('./running-whale@2x.png') center / 100% 100% no-repeat;
+      mask-mode: alpha;
+      /* 让动画遮罩的重绘留在图标大小的合成层上。 */
+      will-change: transform;
+    }
+
+    .runningWhaleStill {
+      display: none;
+    }
+  }
+}

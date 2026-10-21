@@ -66,8 +66,43 @@ const MODE = process.env.NODE_ENV === 'development' ? 'development' : 'productio
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
 
+/** 样式表可内联的图片类型（与官方 ui-chat 预设一致）。 */
+const IMAGE_MEDIA_TYPES = {
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+}
+
 /** 仓库相对、正斜杠的样式表身份。 */
 const cssIdentity = absolutePath => relative(process.cwd(), absolutePath).split(sep).join('/')
+
+/**
+ * 把样式表里的 `url('./x.png')` 换成 data URL。
+ *
+ * 必须在原始 CSS 上做（早于 `JSON.stringify` 包装），否则 base64 里的
+ * `+` `/` `=` 会破坏生成的 JS 字符串字面量。
+ * @param css - 原始样式表文本。
+ * @param identity - 样式表的仓库相对身份，用于解析相对资源路径。
+ * @param ctx - 构建上下文，用于登记被引用的资源为 watch 依赖。
+ * @returns 替换后的样式表文本。
+ */
+async function inlineCssImages(css, identity, ctx) {
+  if (!css.includes('url(')) return css
+  let next = css
+  for (const match of css.matchAll(/url\((['"]?)\.\/([^'")]+)\1\)/g)) {
+    const [whole, , file] = match
+    const assetPath = resolve(process.cwd(), dirname(identity), file)
+    ctx.addWatchFile(assetPath)
+    const bytes = await readFile(assetPath)
+    const ext = file.slice(file.lastIndexOf('.')).toLowerCase()
+    const media = IMAGE_MEDIA_TYPES[ext]
+    if (media === undefined) {
+      throw new Error(`样式引用了不支持的图片类型：${file}（支持 ${Object.keys(IMAGE_MEDIA_TYPES).join(', ')}）`)
+    }
+    next = next.replace(whole, `url("data:${media};base64,${bytes.toString('base64')}")`)
+  }
+  return next
+}
 
 const client = {
   name: `${PACKAGE_NAME}/client`,
@@ -126,12 +161,21 @@ const client = {
       const identity = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
       const fileId = resolve(process.cwd(), identity)
       this.addWatchFile(fileId)
-      const source = await readFile(fileId)
-      // tag id 用仓库相对身份而非 basename：同名文件在不同目录会撞同一个
-      // data-plugin-css，导致后一份样式被跳过。
+      const raw = await readFile(fileId)
+      // 先把 `url('./x.png')` 换成 data URL，再交给 lightningcss。
+      //
+      // 为什么必须在这一步：CSS Modules 编译后的样式是内联注入的 <style>，
+      // 它没有文件位置，浏览器无法解析相对 url。官方 ui-chat 用同样的做法
+      // （`packages/client/ui-chat/tsdown.config.ts` 的 `chat-whale-image`）。
+      //
+      // 为什么不在 transform 钩子里做：那时模块源码已是
+      // `const css = "<JSON 转义后的整段样式>"`，直接字符串替换会破坏
+      // JSON 字面量（base64 含 `+` `/` `=`）。在原始 CSS 上替换则安全，
+      // 之后的 JSON.stringify 会正确转义。
+      const source = await inlineCssImages(raw.toString('utf8'), identity, this)
       const { code, exports: cssExports } = transform({
         filename: identity,
-        code: source,
+        code: Buffer.from(source, 'utf8'),
         cssModules: { pattern: '[hash]_[local]' },
         minify: true,
       })

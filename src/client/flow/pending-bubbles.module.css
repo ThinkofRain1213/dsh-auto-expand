@@ -1,0 +1,96 @@
+/**
+ * 克隆自 `chat/MessageItem.module.css`（`.userRow` / `.actions`）与
+ * `chat/MessageIconActions.module.css`（图标行样式）。
+ *
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ *
+ * 只保留 pending bubble 与它的 IconActions 行用到的类。
+ */
+
+/* 用户消息把气泡与操作行右对齐。 */
+.userRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* 操作行右侧与气泡对齐时使用的内缩。 */
+.actions {
+  padding-right: 4px;
+}
+
+/* 用户与 pending bubble 共用的 IconActions 行。 */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: calc(28px + var(--dsh-content-font-delta, 0px));
+}
+
+/* 用户时钟保持次级字号。 */
+.timeStart {
+  padding-right: 12px;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+}
+
+/* Assistant 尾部元数据保持较小信息字号，同时共享操作图标的基础色。 */
+.timeEnd {
+  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
+  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  color: inherit;
+  white-space: nowrap;
+}
+
+/* 较早的用户行在悬停或聚焦时显示完整操作行。opacity 保持布局稳定，
+   没有 hover 能力的设备始终显示所有行。 */
+@media (hover: hover) {
+  :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering']):has(
+    ~ :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
+  ) .actions {
+    opacity: 0;
+    transition: opacity 80ms ease;
+  }
+
+  :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering']):has(
+    ~ :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
+  ):hover .actions,
+  :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering']):has(
+    ~ :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
+  ):focus-within .actions {
+    opacity: 1;
+  }
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(28px + var(--dsh-content-font-delta, 0px));
+  height: calc(28px + var(--dsh-content-font-delta, 0px));
+  padding: 6px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+/* 操作图标跟随其所服务文本的同一 px 增量。 */
+.action svg {
+  width: calc(15px + var(--dsh-content-font-delta, 0px));
+  height: calc(15px + var(--dsh-content-font-delta, 0px));
+}
+
+.actions[data-clock='end'] .action svg {
+  width: calc(17px + var(--dsh-content-font-delta, 0px));
+  height: calc(17px + var(--dsh-content-font-delta, 0px));
+}
+
+.action:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+}

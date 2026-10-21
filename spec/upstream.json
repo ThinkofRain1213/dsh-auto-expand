@@ -1,0 +1,302 @@
+{
+  "$comment": "由 `pnpm drift:record` 生成。记录每个克隆文件在上游 checkout 里的内容哈希。",
+  "commit": "687f282e86",
+  "generatedAt": "2026-10-21T17:26:18.908Z",
+  "packages": {
+    "@deepseek-ai/dsh-client-ui-chat": {
+      "version": "0.2.1-rc.2",
+      "recorded": "0.2.1-rc.2",
+      "sourceRoot": "packages/client/ui-chat/src/client"
+    },
+    "@deepseek-ai/dsh-client-ui-conversation": {
+      "version": "0.2.1-rc.2",
+      "recorded": "0.2.1-rc.2",
+      "sourceRoot": "packages/client/ui-conversation/src/client"
+    }
+  },
+  "files": [
+    {
+      "local": "src/client/assistant/AutoAssistantMarkdown.tsx",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/AssistantMarkdown.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-e0d3e450a160ef395e4f50063d83a83a749763f7876fa0a36c5c2de68f6be387"
+        }
+      ]
+    },
+    {
+      "local": "src/client/assistant/AutoAssistantMarkdown.module.css",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/AssistantMarkdown.module.css",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-e10c5986e93070cf87bbd5c4a570a64a103c0d596d178ad4b8e170bbb6883908"
+        }
+      ]
+    },
+    {
+      "local": "src/client/assistant/AutoAssistantNodeView.tsx",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/AssistantNodeView.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-72bbc22bd8584c6f8c07656e33b7adb5858f2151eff6e21c6e9a9e87178c41c2"
+        }
+      ]
+    },
+    {
+      "local": "src/client/assistant/AutoReasoningRow.tsx",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/ReasoningRow.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-5bf98dd0c28c7ef48795fda2b714cc32b36bb2d6e86b78add02d89590a884612"
+        }
+      ]
+    },
+    {
+      "local": "src/client/assistant/AutoReasoningRow.module.css",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/ReasoningRow.module.css",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-5c28a61623c3bda67513c728422141921909d5227dbfb6c2e8a1a2e7e59079b1"
+        }
+      ]
+    },
+    {
+      "local": "src/client/assistant/markdown-labels.ts",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:markdown-labels.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-ecb76d9db853ca785b532001c31df3be7d60f98e5bcd221b28196a18db94600a"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/AutoFlow.tsx",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/ChatFlow.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-8008a2a6097d0368ffdc02b4e7df95f35c50fda4c411e81d2ebc7897fa029e48"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/AutoGroupSeat.tsx",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/ChatGroupSeat.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-90b55d52fd9abb5b3ed09562d12c4d166677b6d856f2cb692c2945b31ef10951"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/AutoGroupSeat.module.css",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/ChatGroupSeat.module.css",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-dc7b725e4f1d25bb046c7f2d995ad4c60e32b18fc5bd8d7d84361c48512a1307"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/AutoNodeSeat.tsx",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/ChatNodeSeat.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-950c08b9a67e21adf7440329bddfe70ef2e50495afec407d93ea2a225572db17"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/accessibility.module.css",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/accessibility.module.css",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-57cfa9a890cb754cbd2cf9ade7d7379873620b7ee86cb8f11f0177065065788d"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/use-process-scroll.ts",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/use-process-scroll.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-3178e93c8ffec6274444dd700b6959d9f6d932db04c22d6483cde62baff47b56"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/use-scroll-follow.ts",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/use-scroll-follow.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-fd0734320e326292e614991476c1ffe492a40b90e44534b47a0368528a9415f0"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/use-calendar-day.ts",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/use-calendar-day.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-7add01dcf998cb7b00b85c9f71679f33954c84210beeadb28d371e22410a63f7"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/message-chrome.ts",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/message-chrome.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-861a573c299317e5359f735a1c33381f93537e286a1b4fbd6ad0a0c01c98629a"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/RunningStatus.tsx",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/RunningStatus.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-a1b1a866e7c6a07ab4233f27fe186079f24bfec3478a7b326ef248d3bdfcb225"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/RunningWhaleTail.tsx",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/RunningWhaleTail.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-0ddb0ab3819c0eb3b8a5ab96d8c3d5ada30771fa66d16e594faa5e552161905d"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/PendingIconActions.tsx",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:chat/MessageIconActions.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-57bbf290748e848503b92d8659b4197c6cc62293cd2301bbe95bec43c8626fb5"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/pending-bubbles.tsx",
+      "kind": "partial",
+      "sources": [
+        {
+          "source": "ui-chat:chat/MessageItem.tsx",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-118a4d1dcf9eb3b128708b3021acd6f2f7584004f6f904e2d61df23daa528e63"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/pending-bubbles.module.css",
+      "kind": "partial",
+      "sources": [
+        {
+          "source": "ui-chat:chat/MessageItem.module.css",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-d82759f3805832e0087dd85b41473ec4bf93aea51aa039378f161df4ccac1038"
+        },
+        {
+          "source": "ui-chat:chat/MessageIconActions.module.css",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-b5e3ced5112bb676345eaa7d1bf7ec291b87f56ffa87579b6ece7b6ca6c72902"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/chat-flow.module.css",
+      "kind": "partial",
+      "sources": [
+        {
+          "source": "ui-chat:chat/ChatView.module.css",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-9b5f56347f4b86846766ae9544207b7ecf112e857e2c31ca9fb8a3e734b5bafb"
+        }
+      ]
+    },
+    {
+      "local": "src/client/flow/flow-utils.ts",
+      "kind": "partial",
+      "sources": [
+        {
+          "source": "ui-chat:chat/render-entry.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-6eb62854a3bc50f9088808f8b3d7d63e201db13c1de84122890e832b9a3df50a"
+        },
+        {
+          "source": "ui-chat:chat/flow-motion.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-e9e30f8ebb8b5326d1c4ecc03768c8a91157158f6b8c3721d63683ae9f6db146"
+        },
+        {
+          "source": "ui-chat:chat/step-process.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-9a0b117d4adae19137cf2ed5e5dcfa2c3070733fe5b68a7e65626a409d3d2d36"
+        },
+        {
+          "source": "ui-chat:chat/message-chrome.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-861a573c299317e5359f735a1c33381f93537e286a1b4fbd6ad0a0c01c98629a"
+        }
+      ]
+    },
+    {
+      "local": "src/client/contract/chat-contract.ts",
+      "kind": "partial",
+      "sources": [
+        {
+          "source": "ui-chat:contract/group-tree.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-2257ee9912102b4a05a8d2b17828b109082986274437b8d2a494b1c64536d04d"
+        },
+        {
+          "source": "ui-chat:contract/turn-process.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-dce44841b376607f143df8c990b4f9e54579655a2d6adc8fead2fe7112efe7ef"
+        },
+        {
+          "source": "ui-chat:stores.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-1587f1cc9895ee8d3b56b2ba876d4d5445473980380c34c9392ab84967ea4fa8"
+        }
+      ]
+    }
+  ]
+}

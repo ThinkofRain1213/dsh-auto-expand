@@ -67,9 +67,28 @@ DSH 默认把工作过程折叠成三层：
 
 ```bash
 pnpm install
-pnpm verify     # typecheck + build + test + smoke
-pnpm watch      # 增量构建
+pnpm verify         # typecheck + build + test + smoke
+pnpm pack:check     # 发布产物自检（files 覆盖、exports 可解析、产物体积）
+pnpm drift          # DSH 升级后检查克隆组件是否与上游偏离
+pnpm watch          # 增量构建
 ```
+
+`pnpm drift` 需要一个上游源码 checkout（默认找同级的 `../deepseek-harness`，
+也可以用 `--upstream <path>` 或环境变量 `DSH_SOURCE_CHECKOUT` 指定）。
+没有源码 checkout 时它会跳过并以退出码 2 结束。
+
+## 上游依赖与漂移
+
+本插件克隆了 23 个官方源文件（清单见 `scripts/upstream-manifest.mjs`），
+因为官方没有导出这些组件、且重新注册 slot 会被拒绝（见 `spec/DESIGN.md`）。
+
+DSH 升级后**第一件事**是跑 `pnpm drift`：
+
+- 它把每个克隆文件指回上游出处，用内容哈希判断上游是否变了；
+- `verbatim`（整份克隆）变了 → 必须逐行重新对照，可能漏掉了新分支；
+- `partial`（部分摘取）变了 → 复核被摘取的片段即可。
+
+确认克隆已对齐后，用 `pnpm drift:record` 刷新 `spec/upstream.json`。
 
 ## 许可
 

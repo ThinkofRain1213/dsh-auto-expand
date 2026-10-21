@@ -32,7 +32,10 @@
         "@deepseek-ai/dsh-client-ui-conversation",
         "@deepseek-ai/dsh-client-ui-renderer",
         "@deepseek-ai/dsh-client-ui-session",
-        "@deepseek-ai/dsh-client-ui-chat"
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
       ]
     }
   },
@@ -42,15 +45,20 @@
     "locale/*.json",
     "cordis.patch.yml",
     "icon.svg",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsdown",
     "watch": "tsdown --watch",
     "typecheck": "tsc -p tsconfig.json --pretty false",
-    "test": "node --experimental-transform-types --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs tests/scroll-init.spec.mjs tests/scroll-align.spec.mjs tests/process-scroll.spec.mjs",
+    "test": "node --experimental-transform-types --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs tests/scroll-init.spec.mjs tests/scroll-align.spec.mjs tests/process-scroll.spec.mjs tests/settings-write.spec.mjs",
     "smoke": "node scripts/smoke-client.mjs",
     "verify": "pnpm typecheck && pnpm build && pnpm test && pnpm smoke",
+    "verify:full": "pnpm verify && pnpm drift",
+    "drift": "node scripts/check-drift.mjs",
+    "drift:record": "node scripts/record-upstream.mjs",
+    "pack:check": "pnpm build && node scripts/check-pack.mjs",
     "clean": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\""
   },
   "peerDependencies": {

@@ -14,6 +14,7 @@
  */
 import { useSyncExternalStore } from 'react'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { writeOptimistic } from './settings-write.ts'
 
 /** 本插件设置命名空间（= Host 半边在 `cordis.patch.yml` 里的 entry id）。 */
 export const AUTO_EXPAND_NAMESPACE = 'auto-expand'
@@ -93,7 +94,8 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
  * 写入一个开关。
  *
  * 乐观：先更新本地快照，再写 Host；写失败时回滚到 Host 的值。
- * 这样开关切换不会因为 RPC 往返而卡顿。
+ * 这样开关切换不会因为 RPC 往返而卡顿。具体规则与回滚时机见
+ * `settings-write.ts`（那里是可单测的纯逻辑）。
  * @param field - 字段名。
  * @param value - 新值。
  * @returns 写入是否被 Host 接受。
@@ -102,14 +104,7 @@ export async function setAutoExpandSetting(
   field: keyof AutoExpandSettings,
   value: boolean,
 ): Promise<boolean> {
-  const previous = settingsSource.getSnapshot()
-  if (previous[field] === value) return true
-  settingsSource.set({ ...previous, [field]: value })
-  const form = attached?.form
-  if (form === undefined) return false
-  const ok = await form.set(field, value)
-  if (!ok) settingsSource.set(previous)
-  return ok
+  return writeOptimistic(settingsSource, attached?.form, field, value)
 }
 
 /**

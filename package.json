@@ -52,7 +52,7 @@
     "build": "tsdown",
     "watch": "tsdown --watch",
     "typecheck": "tsc -p tsconfig.json --pretty false",
-    "test": "node --experimental-transform-types --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs tests/scroll-init.spec.mjs tests/scroll-align.spec.mjs tests/process-scroll.spec.mjs tests/settings-write.spec.mjs",
+    "test": "node --experimental-transform-types --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs tests/scroll-init.spec.mjs tests/scroll-align.spec.mjs tests/process-scroll.spec.mjs tests/settings-write.spec.mjs tests/drift-manifest.spec.mjs tests/contract-consistency.spec.mjs",
     "smoke": "node scripts/smoke-client.mjs",
     "verify": "pnpm typecheck && pnpm build && pnpm test && pnpm smoke",
     "verify:full": "pnpm verify && pnpm drift",

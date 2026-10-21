@@ -14,7 +14,7 @@
  *
  * 退出码：0 = 无漂移；1 = 有漂移；2 = 找不到上游 checkout（跳过）
  */
-import { PACKAGES } from './upstream-manifest.mjs'
+import { PACKAGES, ENTRIES } from './upstream-manifest.mjs'
 import {
   hashFile, readHeadCommit, readPackageVersion, readRecord, resolveCheckout,
 } from './upstream-io.mjs'
@@ -50,6 +50,16 @@ if (head !== null && record.commit !== null && record.commit !== undefined && he
   console.log('注意：checkout HEAD 与记录时不同，下面逐文件比对才是准确结论。')
 }
 
+// ── 清单与记录的一致性 ──────────────────────────────────────────────────
+// `record.files` 是检查的输入；如果清单里新增了克隆文件而记录没更新，新文件
+// 会被静默漏检——这比没有漂移检测更危险（虚假安全感）。因此先对齐两者。
+const recordedLocals = new Set((record.files ?? []).map(file => file.local))
+const notRecorded = ENTRIES.filter(entry => !recordedLocals.has(entry.local)).map(entry => entry.local)
+const manifestLocals = new Set(ENTRIES.map(entry => entry.local))
+const orphaned = (record.files ?? [])
+  .filter(file => !manifestLocals.has(file.local))
+  .map(file => file.local)
+
 // ── 包版本 ──────────────────────────────────────────────────────────────
 const versionIssues = []
 for (const [name, info] of Object.entries(record.packages ?? {})) {
@@ -81,13 +91,23 @@ for (const file of record.files ?? []) {
 
 // ── 报告 ────────────────────────────────────────────────────────────────
 const total = (record.files ?? []).reduce((sum, file) => sum + (file.sources?.length ?? 0), 0)
+const staleRecord = notRecorded.length > 0 || orphaned.length > 0
 
-if (versionIssues.length === 0 && drifted.length === 0 && deleted.length === 0 && unreadable.length === 0) {
+if (versionIssues.length === 0 && drifted.length === 0 && deleted.length === 0
+  && unreadable.length === 0 && !staleRecord) {
   console.log(`\n✅ 无漂移：${total} 个上游来源全部与记录一致。`)
   process.exit(0)
 }
 
 console.log('')
+if (notRecorded.length > 0) {
+  console.log('❌ 清单里有克隆文件未被记录（漂移检测会漏掉它们）：')
+  for (const local of notRecorded) console.log(`   ${local}`)
+}
+if (orphaned.length > 0) {
+  console.log('⚠️  记录里有清单已移除的条目：')
+  for (const local of orphaned) console.log(`   ${local}`)
+}
 if (versionIssues.length > 0) {
   console.log('❌ 上游包版本已变（克隆必须重新对照）：')
   for (const issue of versionIssues) {
@@ -113,7 +133,8 @@ if (drifted.length > 0) {
 }
 
 console.log('')
-console.log(`共 ${drifted.length + deleted.length + unreadable.length} 处漂移 / ${total} 个来源。`)
+console.log(`共 ${drifted.length + deleted.length + unreadable.length} 处内容漂移 / ${total} 个来源。`)
+if (staleRecord) console.log(`另有 ${notRecorded.length + orphaned.length} 处清单与记录不一致。`)
 console.log('处理完并确认克隆已对齐后，运行 `pnpm drift:record` 刷新记录。')
 
 // ── 顺带检查 package.json 的 peer 范围是否仍覆盖记录版本 ────────────────

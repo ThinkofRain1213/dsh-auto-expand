@@ -164,6 +164,11 @@ for (const marker of CLIENT_FORBIDDEN_MARKERS) {
 if (!clientSource.includes('__ModuleLoader__')) {
   failures.push('lib/client.js 不是 ModuleLoader 闭包格式')
 }
+// 浏览器里没有 Node 内置模块；一旦被 require，运行时才会炸。
+const nodeBuiltin = /require\(["']node:([a-z/]+)["']\)/.exec(clientSource)
+if (nodeBuiltin !== null) {
+  failures.push(`lib/client.js 里 require 了 Node 内置模块 "node:${nodeBuiltin[1]}" —— 浏览器无法加载`)
+}
 notes.push(`lib/client.js ${(statSync(clientPath).size / 1024).toFixed(1)} kB`)
 
 // ── 报告 ────────────────────────────────────────────────────────────────

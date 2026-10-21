@@ -59,6 +59,21 @@
   以官方类名判空，对插件渲染的行恒判为"非空"。见 `spec/P6-REPORT.md` 8.4。
 - **两处克隆偏差**：`webSearch` 图标多了 `size={14}`；`pending-bubbles` 多出一条
   上游不存在的 `padding-right: 4px`。见 `spec/P6-REPORT.md` 8.3。
+- **开启折叠动画后出现跳变、过度上拉、底部空白**：`collapseTiming` 设为
+  `next-input` 时，官方 `capped` 公式会随 `open` 翻转，body 在动画测量前被摊成
+  完整高度，于是动画从几千 px 收起。修法是让 `capped` 只依赖 `grouped`。
+  见 `src/client/flow/group-capped.ts` 与 `spec/MOTION-PLAN.md` 第 2.2 节。
+
+### 建议设置
+
+**把「设置 → 通用 → 工作步骤收起时机」改成「下次有新消息时」**，否则大段的
+展开/折叠是瞬时跳变（官方默认值就是如此，与本插件无关）。
+
+改完之后：
+
+- 大段折叠有平滑动画，外层对话滚动也跟着平滑；
+- 思考块的折叠**仍然是瞬时的**——它走 `DisclosureRow` 的 `{open && children}`，
+  不在官方动画体系内。这一层待实施，方案见 `spec/MOTION-PLAN.md`。
 
 ### 有意与官方不一致的地方
 

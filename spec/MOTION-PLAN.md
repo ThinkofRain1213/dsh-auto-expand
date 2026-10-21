@@ -1,8 +1,19 @@
 # 折叠动画方案
 
-> 状态：**方案，未实施**
+> 状态：**group body 已解决（用官方机制 + 一处修正）；思考块待实施**
 > 起因：真机反馈"展开收起抖动太大——根因是没有动画"
-> 相关：`ARCHITECTURE.md` 4.6 / 4.7、`FIX-SCROLL.md`
+> 相关：`ARCHITECTURE.md` 4.6 / 4.7 / 4.8、`FIX-SCROLL.md`
+
+---
+
+## 0. 一句话结论
+
+| 层 | 状态 | 做法 |
+|---|---|---|
+| group body 折叠动画 | ✅ 已解决 | 用户设置 `collapseTiming: next-input`，打开官方 `flow-motion` |
+| 外层对话滚动平滑 | ✅ 已解决（顺带） | 同一设置启用 `InputFoldDriver` |
+| 折叠时的跳变 / 过度上拉 / 底部空白 | ✅ 已修 | `capped` 不再随 `open` 翻转（`group-capped.ts`） |
+| **思考块折叠动画** | ❌ **待实施** | 需要自建行内高度过渡，见第 4 节 |
 
 ---
 
@@ -50,6 +61,80 @@ data-chat-motion={deferCompletedTurns && scroll.initialized
 **结论：默认配置下，连官方的 group 折叠也是瞬时的。** 插件没有"弄坏"动画——它只是
 把折叠次数放大到了一个跳变会被人眼捕捉到的频率。
 
+### 2.1 改一个设置就能打开官方动画（已验证）
+
+`collapseTiming` 是**用户可见的设置**：设置 → 通用 →「工作步骤收起时机」→
+「下次有新消息时」（`TranscriptViewRow.tsx:62-69`，`order: 12`）。也能直接写
+profile 的 `cordis.patch.yml`：
+
+```yaml
+- id: ui-chat
+  config:
+    collapseTiming: next-input
+```
+
+**实测结果**：
+
+| 项 | 改之前（`completion`） | 改之后（`next-input`） |
+|---|---|---|
+| group body 折叠 | 瞬时跳变 | ✅ 有动画 |
+| 外层对话滚动 | instant | ✅ **丝滑了**（`InputFoldDriver` 逐帧驱动） |
+| 思考块折叠 | 瞬时 | ❌ 仍然瞬时 |
+
+外层滚动变平滑是意外收获：`deferCompletedTurns` 会启用
+`reading.followInputFold()`（`use-chat-scroll.ts:82`），它走
+`use-chat-viewport.ts` 的 `InputFoldDriver`，`frame()` 每帧写 `scrollTop`
+（`:328`），与折叠动画共享同一个 `progress`（`flow-motion.ts:269`）——高度收缩和
+视口上移是同一根时钟驱动的。这正是"把平滑滚动搬到外层"想要的效果，只是不需要搬。
+
+**思考块不在此列**：`[data-chat-motion]` 只对走 `useFlowHidden` / `useMotionHidden`
+的元素生效。思考块走 `DisclosureRow` 的 `{open && children}`，完全不在这个体系内。
+这一层只能改代码（见第 4.4 节）。
+
+---
+
+## 2.2 打开动画后暴露的第二个 bug：`capped` 翻转
+
+`next-input` 下第一次折叠就出现三个症状：**上面跳变、下面被拉上去、最下面凭空多出
+空白**。三者是同一个数字算错的三种表现。
+
+### 根因
+
+官方 `ChatGroupSeat.tsx:182`：
+
+```ts
+const capped = grouped && (!deferCompletedTurns || open)
+```
+
+`capped` 决定 body 用 `.body`（`max-height: min(400px, 50vh)`）还是
+`.expandedBody`（`max-height: none`）。公式里带 `open`，于是折叠那一刻 `open`
+变 false、`capped` 同时变 false，**body 在动画测量之前就被摊成完整高度**：
+
+| 位置 | 读到的数字 | 症状 |
+|---|---|---|
+| `flow-motion.ts:370` `element.offsetHeight` | 完整内容高度（几千 px），不是屏幕上的 400px | 动画从完整高度收起 → **上面跳变** |
+| `use-chat-viewport.ts:259` `removed += box.height` | 同上 | 视口位移算大 → **下面被拉上去** |
+| `use-chat-viewport.ts:282` `setSpacer(...)` | 同上 | 留白撑到几千 px → **底部空白** |
+
+官方注释称"正在关闭的 body 保留平铺高度，使过渡从屏幕上的样子开始"——这句话在
+`next-input` 下恰好反了：屏幕上的样子是 400px 上限，去掉上限才**不是**屏幕上的样子。
+
+### 为什么官方自己没发现
+
+`DEFAULT_COLLAPSE_TIMING = 'completion'`，那时 `capped` 恒等于 `grouped`、与
+`open` 无关，折叠前后都是 400px，动画正确。只有切到 `next-input` 才暴露。
+
+### 修法（已实施）
+
+`capped` 是 body 的**布局属性**，不该随展开状态变化：
+
+```ts
+const capped = isBodyCapped(grouped)   // 原：grouped && (!deferCompletedTurns || open)
+```
+
+判定抽到 `src/client/flow/group-capped.ts`（纯函数 + 完整推演），
+`tests/group-capped.spec.mjs` 固化"与官方公式的差异只有一格"。
+
 ---
 
 ## 3. 三个层级其实不是一回事
@@ -68,20 +153,24 @@ data-chat-motion={deferCompletedTurns && scroll.initialized
 
 ---
 
-## 4. 方案：自建最小动画，group 与思考共用
+## 4. 思考块：唯一要自建的部分
 
-### 4.1 为什么不自建不行
+> **范围已收窄**。本节原本打算连 group body 一起自建动画；实测后 group body
+> 用官方机制就够了（第 2.1、2.2 节）。现在只剩思考块这一层需要自己做。
 
-- 官方 `flow-motion` 的 532 行里有 scrollport 协同（`InputFoldDriver` 的
-  `begin/prepare/frame/finish`）、批量折叠、跨行冻结、视口留白补偿。**那些是为
-  "整轮折叠"设计的**，而我们的折叠是单层局部的，用不上也不该动。
-- 但它的**行级能力**（`collapse` 的 70/50/110ms 时间轴）正是需要的东西，可以
-  独立复刻成一层的工具函数。
+### 4.1 为什么不用官方机制
+
+官方 `flow-motion` 的 532 行里有 scrollport 协同（`InputFoldDriver` 的
+`begin/prepare/frame/finish`）、批量折叠、跨行冻结、视口留白补偿——**那些是为
+"整轮折叠"设计的**，思考块是单行内部的展开，用不上也不该动。
+
+思考块真正缺的是"行内高度过渡"这一件事。而 `[data-chat-motion]` 体系对它完全
+无效，因为 `DisclosureRow` 不在 `useFlowHidden` / `useMotionHidden` 的调用链上。
 
 ### 4.2 核心工具
 
 ```ts
-/** 折叠动画的共享常量：两个层级必须一致，"同一套动画"才成立。 */
+/** 折叠动画的共享常量：必须与官方 flow-motion 一致，否则节奏割裂。 */
 export const FADE_OUT_MS = 70
 export const CLOSE_DELAY_MS = 50
 export const CLOSE_MS = 110
@@ -107,55 +196,23 @@ export function collapseElement(element: HTMLElement, done: () => void): () => v
 5. 返回 disposer：卸载或重复折叠时清理样式与监听器。
 6. `prefers-reduced-motion` 时直接 `done()`。
 
-### 4.3 group body 的接入点
+### 4.3 group body 的接入点 —— **已不需要**
 
-现状：`AutoGroupSeat.tsx:220`
+> **状态更新**：这一节原本打算自建动画接管 group body。实测后作废——
+> 把 `collapseTiming` 设为 `next-input` 就打开了官方 `flow-motion` 的折叠动画，
+> 再修掉 `capped` 翻转（第 2.2 节）之后，group body 的折叠已经是平滑的、
+> 且与外层滚动共用同一根时钟。**不需要 `collapseElement`。**
 
-```ts
-const bodyRef = props.useGroupAction(grouped && !open, reveal)
-```
+保留这段记录，是为了说明为什么当时的判断是错的：我以为
+`[data-chat-motion]` 作用域在插件里无法满足，实际上它由用户设置驱动，
+而插件的折叠时刻（group 关闭）都发生在一轮运行中，正好落在作用域覆盖的窗口内。
 
-`useGroupAction` → `useFlowHidden` → `useSearchableHidden`：它同步写
-`hidden="until-found"` 属性，没有动画（闸门②不过）。
-
-改动思路：**不改 `useGroupAction` 的调用**（它还负责焦点保护和浏览器查找的
-`beforematch` 揭示），而是在它之外再包一层：
-
-```
-open 变 false
-  → 拦截：先 collapseElement(bodyRef.current, commit)
-  → commit 里让 useGroupAction 收到 hidden
-```
-
-难点：`useGroupAction` 的 hidden 是由 React 渲染期传入的布尔值驱动的，
-**无法"延迟提交"**。两条路：
-
-**A. 受控延迟（推荐）**：在 `AutoGroupSeat` 里多一个 `closing` state：
-
-```ts
-const [closing, setClosing] = useState(false)
-// 隐藏条件改为 grouped && !open && !closing
-useLayoutEffect(() => {
-  if (!(grouped && !open) || closing) { setClosing(false); return }
-  setClosing(true)
-  return collapseElement(bodyRef.current, () => setClosing(false))
-}, [grouped, open])
-```
-
-缺点：折叠期间 `hidden` 未提交，`scrollMetrics` 仍把 body 当可见，可能让
-`useProcessScroll` 的边缘渐变短暂抖一下。可接受（body 正在收）。
-
-**B. 直接用 `flow-motion` 的机制**：把 `motion` 从 props 里取出来自己调
-`motion.collapse(bodyRef.current, commit)`。但 `motion` 通过 `ChatFlowHookContext`
-注入、只在 `[data-chat-motion]` 下生效，而我们无法让 `ChatView` 挂上那个属性。
-**不可行**。
-
-### 4.4 思考块的接入点
+### 4.4 思考块的接入点 —— 唯一还需要改代码的地方
 
 现状：`DisclosureRow`（`ui-primitives`）是 `{open && children}` 直接挂载，
-**没有高度过渡通道**，也不接收 motion。
+**没有高度过渡通道**，也不接收 motion。`[data-chat-motion]` 对它完全无效。
 
-两条路：
+三条路：
 
 **A. 自己包一层**（不动官方原语）：
 
@@ -195,46 +252,8 @@ useLayoutEffect(() => {
 
 ### 4.6 统一常量
 
-两个层级必须用同一组 `FADE_OUT_MS / CLOSE_DELAY_MS / CLOSE_MS / EASING`。
-"同一套动画"的判据是**共用同一组数值与同一条缓动**，而不是各写各的 110ms。
-
----
-
-## 5. 外层滚动：暂不接管
-
-曾考虑把平滑滚动"搬"到最外层。**不建议**，两个理由：
-
-1. **外层已经是平滑的**——`use-chat-scroll.ts:83` 的
-   `followTail(deferCompletedTurns ? 'smooth' : 'instant')`。只是默认配置下
-   走 instant。插件无法改变 `deferCompletedTurns`（那是原生工作细节设置）。
-2. **外层滚动是一套完整状态机**：`use-chat-reading.ts` 的 `followingTail` /
-   `followTail` / `landing` / `onResize`，与 `ChatViewport` 的 `InputFoldDriver`
-   协同。插件插手等于接管一条有完整分支的路径——**这正是 P4 与 `FIX-SCROLL`
-   两次事故的共同成因**（见 `FIX-SCROLL.md` 第 6.2 / 13 节）。
-
-**折叠高度连续变化后，视口自然就平滑跟上了**，不需要额外接管外层滚动。
-
----
-
-## 6. 实施顺序与验收
-
-| 步 | 内容 | 验收 |
-|---|---|---|
-| 1 | `collapseElement` 工具 + `prefers-reduced-motion` 降级 + 兜底定时器 | 单测：正常路径、高度为 0、元素卸载、reduced-motion |
-| 2 | group body 接入（4.3 的 A 方案） | 真机：group 自动折叠时高度连续收缩，无跳变 |
-| 3 | 思考块接入（4.4 的 C 方案） | 真机：思考折叠时高度连续收缩 |
-| 4 | 统一常量并核对两处时间轴一致 | 两处同时折叠时观感一致 |
-| 5 | 回归：`FIX-SCROLL` 的三条（手动展开停顶部、自动跟随、读者上滚） | `pnpm verify` + 真机 |
-
-**必须真机确认的三点**：
-
-1. 折叠动画期间，group body 的 400px 上限是否导致内容先"跳"一下再收；
-2. 思考块 `contain: size` 切换的瞬间有没有一帧尺寸错位；
-3. 连续快速折叠（中间回复打断）时有没有残留的中间态。
-
----
-
-## 7. 参考数据（供实现时对照）
+思考块的高度过渡必须与官方 `flow-motion` 用同一组数值，否则大段与外层是平滑的、
+思考块却是另一个节奏，观感割裂：
 
 | 常量 | 值 | 出处 |
 |---|---|---|
@@ -243,4 +262,48 @@ useLayoutEffect(() => {
 | `CLOSE_MS` | 110 | `flow-motion.ts:13` |
 | `SETTLE_SLACK_MS` | 80 | `flow-motion.ts:14` |
 | `EASING` | `cubic-bezier(0.4, 0, 0.2, 1)` | `flow-motion.ts:16` |
-| 成员间距过渡 | `margin-top 160ms` 同缓动 | `ChatGroupSeat.module.css` |
+
+注意：这些是**官方 CSS transition 的时长**，我们复刻时照抄即可，不需要重新调参。
+
+---
+
+## 5. 外层滚动：已确认不需要接管
+
+曾考虑把平滑滚动"搬"到最外层。**不需要**，而且现在已经实现了：
+
+`use-chat-scroll.ts:83` 本来就是 `followTail(deferCompletedTurns ? 'smooth' : 'instant')`。
+把 `collapseTiming` 设为 `next-input` 后走的是更强的一条：
+`reading.followInputFold()`（`:82`）→ `ChatViewport.foldDriver()` →
+`InputFoldDriver.frame()` 每帧写 `scrollTop`（`use-chat-viewport.ts:328`），
+与折叠动画共享同一个 `progress`。
+
+**真机已确认外层变丝滑。** 剩下唯一的问题在思考块。
+
+---
+
+## 6. 当前状态与剩余工作
+
+### 已完成
+
+| 项 | 做法 |
+|---|---|
+| group body 折叠动画 | 用户设置 `collapseTiming: next-input`，打开官方 `flow-motion` |
+| 外层滚动平滑 | 同一设置顺带启用 `InputFoldDriver` |
+| 折叠时的跳变/过度上拉/底部空白 | 修 `capped` 翻转（`group-capped.ts`） |
+
+### 剩余：思考块高度过渡
+
+**这是唯一还需要改代码的地方。** 在那之前，观感是：大段平滑收起 + 外层平滑跟随，
+但思考块在动画开始前就瞬间消失。
+
+实施要点：
+
+1. 走 4.4 的 **C 方案**（`AutoReasoningRow` 自己渲染正文），因为 B 方案需要改
+   `DisclosureRow` 的行为；
+2. 复刻官方 `DisclosureRow` 的 a11y 契约（`aria-expanded`、`role="button"`、
+   Enter/Space 键盘、`data-disclosure-*` 属性）；
+3. 处理 4.5 的 `contain: size` 冲突；
+4. 时长用 4.6 那组常量。
+
+**验收**：思考块折叠时高度连续收缩，节奏与大段一致；`prefers-reduced-motion` 下
+直接跳变；手动展开/折叠仍然即时响应（不要给用户操作加延迟）。

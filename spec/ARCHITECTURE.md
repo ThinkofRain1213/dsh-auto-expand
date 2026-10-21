@@ -324,7 +324,7 @@ open = groupAutoExpand && !closed || reasoningAutoExpand && hasRunningReasoning
 
 或者直接合成一个三态选择（关闭 / 仅思考 / 全部）。
 
-### 4.8 展开/折叠是瞬时的（无动画）
+### 4.8 折叠动画：默认关闭，靠用户设置打开
 
 group body 的隐藏走 `props.useGroupAction(grouped && !open, reveal)` →
 官方 `useFlowHidden`，**这条链本来是带折叠动画的**（`flow-motion.ts` 的
@@ -339,10 +339,14 @@ data-chat-motion={deferCompletedTurns && scroll.initialized && (...) ? '' : unde
 **所以默认配置下连官方的 group 折叠也是瞬时的**——插件没有弄坏动画，只是把折叠
 频率放大到了跳变会被眼睛捕捉的程度。
 
-思考块更彻底：`DisclosureRow` 是 `{open && children}`，没有高度过渡通道。
+**已解决**：把「设置 → 通用 → 工作步骤收起时机」改成「下次有新消息时」，
+group 折叠动画与外层平滑滚动就都回来了。但这一改会暴露官方的另一个 bug
+（`capped` 随 `open` 翻转，导致动画测到错误高度），已在本插件侧修正——
+见 `group-capped.ts` 的文件头与 [MOTION-PLAN.md](MOTION-PLAN.md) 第 2.2 节。
 
-完整方案（含自建最小动画的接入点、`contain: size` 的坑、为何不接管外层滚动）
-见 [MOTION-PLAN.md](MOTION-PLAN.md)。**尚未实施。**
+**思考块仍未解决**：`DisclosureRow` 是 `{open && children}`，没有高度过渡通道，
+`[data-chat-motion]` 对完全不在 `useFlowHidden` 链上的它无效。这一层需要改代码，
+方案见 [MOTION-PLAN.md](MOTION-PLAN.md) 第 4 节。
 
 ---
 

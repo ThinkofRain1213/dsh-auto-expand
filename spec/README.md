@@ -8,6 +8,7 @@
 | [PLAN.md](PLAN.md) | 6 个阶段的规划、任务分解、验收标准、工程规范、风险治理、后续演进 | 想了解"项目怎么推进" |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 面向实现的架构规格：组件树、数据流、接口契约、关键算法、实现顺序 | 要动手写代码时 |
 | [SETTINGS-SPEC.md](SETTINGS-SPEC.md) | 插件详情页设置卡片的规范（槽位、间距、字体、控件、注册写法），摘自 dsh-project-groups 的实测 | 改设置页时 |
+| [MOTION-PLAN.md](MOTION-PLAN.md) | 折叠动画方案（**未实施**）：官方 flow-motion 的闸门为何默认不生效、三层滚动的真实差异、自建最小动画的接入点与坑 | 处理抖动问题时 |
 
 ## 阶段报告
 
@@ -50,6 +51,12 @@
 1. [ARCHITECTURE.md](ARCHITECTURE.md) → 组件树与数据流
 2. `scripts/upstream-manifest.mjs` → 哪些文件是克隆的
 3. 改完跑 `pnpm verify && pnpm pack:check`；动过克隆就再跑 `pnpm drift`
+
+### 处理滚动 / 抖动问题
+
+1. [FIX-SCROLL.md](FIX-SCROLL.md) 第 13 节 → **先读三条教训**（"scrollTop 变了"不等于"读者滚了"、一次性补丁要验证真的执行了、异步消费的意图必须有兑现路径）
+2. [MOTION-PLAN.md](MOTION-PLAN.md) → 动画的闸门在哪里、为什么默认不生效
+3. 这两处最容易重蹈 P4 的覆辙：接管一条有完整状态机的路径却没枚举它的分支
 
 ### 升级 DSH 之后
 

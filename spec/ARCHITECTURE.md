@@ -279,7 +279,7 @@ groupAutoExpand ──→ autoOpen = groupAutoExpand && !closed
 |---|---|---|
 | 开 | 开 | 大段运行中展开；思考流式时在其中展开；段落结束一起折 |
 | 开 | 关 | 大段展开；思考保持官方折叠态（只显示首行摘要） |
-| **关** | **开** | **两层都折**——思考开关是空操作 |
+| **关** | **开** | **两层都折**——思考开关是空操作，界面上该行被门控变灰 |
 | 关 | 关 | 等于官方 |
 
 第三行是设计后果而非 bug：思考块在大段体内，大段折叠时它不可见，因此"思考自动
@@ -323,6 +323,26 @@ open = groupAutoExpand && !closed || reasoningAutoExpand && hasRunningReasoning
 ```
 
 或者直接合成一个三态选择（关闭 / 仅思考 / 全部）。
+
+### 4.8 展开/折叠是瞬时的（无动画）
+
+group body 的隐藏走 `props.useGroupAction(grouped && !open, reveal)` →
+官方 `useFlowHidden`，**这条链本来是带折叠动画的**（`flow-motion.ts` 的
+70/50/110ms 时间轴）。但它有三道闸门，其中一道在默认设置下永不满足：
+
+```tsx
+// ChatView.tsx:211
+data-chat-motion={deferCompletedTurns && scroll.initialized && (...) ? '' : undefined}
+```
+
+`deferCompletedTurns` = `collapseTiming === 'next-input'`，而默认是 `'completion'`。
+**所以默认配置下连官方的 group 折叠也是瞬时的**——插件没有弄坏动画，只是把折叠
+频率放大到了跳变会被眼睛捕捉的程度。
+
+思考块更彻底：`DisclosureRow` 是 `{open && children}`，没有高度过渡通道。
+
+完整方案（含自建最小动画的接入点、`contain: size` 的坑、为何不接管外层滚动）
+见 [MOTION-PLAN.md](MOTION-PLAN.md)。**尚未实施。**
 
 ---
 

@@ -29,6 +29,7 @@ import type { ChatStoreState, ProcessActivity } from '@deepseek-ai/dsh-client-ui
 import type { ChatFlowSlotProps } from '../contract/slots.ts'
 import { turnProcessOpen } from '../contract/chat-contract.ts'
 import { useAutoDisclosure } from '../auto-disclosure.ts'
+import { useAutoExpandSettings } from '../settings.ts'
 import { GroupOpenContext } from '../group-open-context.ts'
 import { AutoNodeSeat } from './AutoNodeSeat.tsx'
 import { chatRenderKey, hiddenOrCollapsing, processTitle } from './flow-utils.ts'
@@ -172,10 +173,14 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
   const turn = useChatGroup(groupKey, group => group?.data.turn)
   const closed = useChatGroup(groupKey, group => group?.data.closed)
   const foldCompleted = props.usePresentation(policy => policy.foldCompletedTurns)
+  // 设置开关：关闭时该层回到官方行为（恒折叠），与顶部整轮折叠互不影响。
+  const settings = useAutoExpandSettings()
   // ── 改动 1：自动展开策略 ────────────────────────────────────────────────
   // 官方为 `useDisclosure()`（恒从折叠开始）。这里改为跟随 group 的关闭状态：
   // 未关闭 → 展开；关闭时 autoOpen 变 false → 丢弃手动覆盖 → 折叠一次。
-  const autoOpen = !(closed === true)
+  //
+  // 开关关闭时 autoOpen 恒为 false，等价于官方的"始终折叠"。
+  const autoOpen = settings.groupAutoExpand && !(closed === true)
   const { open, setOpen, toggle: toggleDisclosure } = useAutoDisclosure(autoOpen)
   const firstKey = members?.[0]?.key ?? ''
   const bottom = props.useChatNodeBottom(firstKey)

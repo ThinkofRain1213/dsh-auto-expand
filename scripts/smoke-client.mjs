@@ -95,25 +95,94 @@ if (!Array.isArray(exported.inject) || exported.inject[0] !== 'slots') {
   throw new Error(`inject 不符：${JSON.stringify(exported.inject)}`)
 }
 
-// 最小 fake ctx：记录 effect 回调，slots 返回空数组（模拟官方 entry 尚未注册）。
-const effects = []
-const listeners = new Map()
-const fakeCtx = {
-  slots: { entries: () => [] },
-  effect: (callback, label) => { effects.push({ callback, label }) },
-  on: (name, listener) => { listeners.set(name, listener); return () => listeners.delete(name) },
+/**
+ * 构造最小 fake ctx。
+ *
+ * `slots.entries()` 返回空数组，模拟官方 entry 尚未注册的情形——这是
+ * 插件启动时最常见的状态，必须不抛错且仍订阅 `slots/changed` 重试。
+ *
+ * `inject(deps, cb)` 模拟 cordis 的**可选依赖**语义：`deps` 全部存在时
+ * 同步执行 `cb`，否则不执行。
+ * @param services - 可选注入的客户端服务（`configForms` / `locale`）。
+ * @returns fake ctx，附带内部记录数组供断言使用。
+ */
+function makeFakeCtx(services = {}) {
+  const effects = []
+  const listeners = new Map()
+  const registered = []
+  const ctx = {
+    slots: {
+      entries: () => [],
+      inject: (_key, callback) => callback(),
+      register: (options, component) => {
+        registered.push({ options, component })
+        return () => {}
+      },
+    },
+    get: name => services[name],
+    inject: (deps, callback) => {
+      if (deps.every(name => services[name] !== undefined)) callback(ctx)
+      return {}
+    },
+    effect: (callback, label) => { effects.push({ callback, label }) },
+    on: (name, listener) => { listeners.set(name, listener); return () => listeners.delete(name) },
+  }
+  // 真实 cordis 里服务同时是 `ctx.<name>` 与 `ctx.get('<name>')` 两种读法。
+  Object.assign(ctx, services)
+  return { ctx, effects, listeners, registered }
 }
-exported.apply(fakeCtx)
 
-if (effects.length !== 1) throw new Error(`应注册 1 个 effect，实际 ${effects.length}`)
-const dispose = effects[0].callback()
+// ── 场景 1：可选服务全部缺失 ────────────────────────────────────────────
+// 核心展开必须照常工作；设置页不挂载。
+const bare = makeFakeCtx()
+exported.apply(bare.ctx)
+
+if (bare.effects.length !== 1) throw new Error(`缺少可选服务时应只注册包裹 effect，实际 ${bare.effects.length}`)
+const dispose = bare.effects[0].callback()
 if (typeof dispose !== 'function') throw new Error('effect 未返回 disposer')
+if (bare.effects[0].label === undefined) throw new Error('effect 未提供 label')
+if (bare.registered.length !== 0) throw new Error('缺少 locale/configForms 时不应注册设置卡片')
 
 // entry 不存在时包裹应静默跳过（不抛错），并仍订阅 slots/changed 重试。
-if (!listeners.has('slots/changed')) throw new Error('未订阅 slots/changed')
-listeners.get('slots/changed')('conversation.chat.flow')
-
+if (!bare.listeners.has('slots/changed')) throw new Error('未订阅 slots/changed')
+bare.listeners.get('slots/changed')('conversation.chat.flow')
 dispose()
+
+// ── 场景 2：可选服务齐备 ────────────────────────────────────────────────
+// 应额外注册 locale 字典与设置卡片，并把设置表单接到本地 store。
+const localeDicts = []
+const locale = { register: (ns, dicts) => { localeDicts.push({ ns, dicts }); return () => {} } }
+const form = {
+  getSnapshot: () => ({ value: { groupAutoExpand: false, reasoningAutoExpand: true } }),
+  subscribe: () => () => {},
+  set: () => Promise.resolve(true),
+}
+const hydrated = makeFakeCtx({
+  locale,
+  configForms: { get: namespace => (namespace === 'auto-expand' ? form : undefined) },
+})
+exported.apply(hydrated.ctx)
+
+// 包裹 + 子作用域内的「字典」「接管设置」—— 共 3 个 effect。
+if (hydrated.effects.length !== 3) throw new Error(`服务齐备时应注册 3 个 effect，实际 ${hydrated.effects.length}`)
+if (localeDicts.length !== 0) throw new Error('locale 字典应在 effect 内按需注册')
+
+// 只有环境里存在设置卡片槽位时才注册；此处 slots.inject 会同步回调。
+if (hydrated.registered.length !== 1) throw new Error(`应注册 1 张设置卡片，实际 ${hydrated.registered.length}`)
+const card = hydrated.registered[0].options
+if (card.key !== 'dsh-auto-expand') throw new Error(`设置卡片 key 必须是包名，实际 ${card.key}`)
+if (card.name !== 'plugins.bundle.config') throw new Error(`设置卡片 slot 不符：${card.name}`)
+if (card.locale !== 'autoExpand') throw new Error(`设置卡片 locale 命名空间不符：${card.locale}`)
+if (typeof hydrated.registered[0].component !== 'function') throw new Error('设置卡片不是组件')
+
+// 逐个执行 effect：包裹、字典注册、表单接管，都必须返回 disposer。
+for (const { callback, label } of hydrated.effects) {
+  const stop = callback()
+  if (typeof stop !== 'function') throw new Error(`effect「${label}」未返回 disposer`)
+  stop()
+}
+if (localeDicts.length !== 1) throw new Error('locale 字典未注册')
+if (localeDicts[0].ns !== 'autoExpand') throw new Error(`字典命名空间不符：${localeDicts[0].ns}`)
 
 // 平台模块必须外部化：这些包若被打进 bundle，会出现第二份运行时实例。
 const PLATFORM = [
@@ -132,7 +201,10 @@ console.log('OK: client bundle 结构校验通过')
 console.log('  loader id          =', loaded.id)
 console.log('  exports            =', Object.keys(exported).join(', '))
 console.log('  inject             =', JSON.stringify(exported.inject))
-console.log('  effect label       =', effects[0].label)
+console.log('  effect 数（无服务） =', bare.effects.length)
+console.log('  effect 数（有服务） =', hydrated.effects.length)
+console.log('  effect labels      =', bare.effects.map(e => e.label).join(' | '))
+console.log('  设置卡片 key       =', hydrated.registered[0]?.options.key)
 console.log('  平台模块外部化     =', [...requested].join(', '))
 console.log('  空 slots 不抛错    = 是')
 console.log('  订阅 slots/changed = 是')

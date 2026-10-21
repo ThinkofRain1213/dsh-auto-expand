@@ -24,6 +24,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import { NOOP, wrapEntry, type StoredEntryLike } from './wrap.ts'
 import { AutoFlow } from './flow/AutoFlow.tsx'
 import { AutoAssistantNodeView } from './assistant/AutoAssistantNodeView.tsx'
+import { SettingsCard } from './settings-card.tsx'
+import { SETTINGS_NS, en, zh } from './locales.ts'
+import { AUTO_EXPAND_NAMESPACE, attachSettingsForm, type ConfigFormLike } from './settings.ts'
+import type { AutoExpandClientContext, AutoExpandSettingsContext } from './contract/client-services.d.ts'
 
 /** 日志前缀。 */
 const TAG = '[dsh-auto-expand]'
@@ -31,20 +35,26 @@ const TAG = '[dsh-auto-expand]'
 /**
  * 本插件依赖的 cordis 服务。
  *
- * `slots` 是唯一硬依赖（包裹的目标）。包裹本身另有 `slots/changed` 重试兜底，
- * 因此即使激活顺序不理想也不会漏包。
+ * `slots` 是硬依赖（包裹目标 + 设置卡片槽位）。`locale` 与 `configForms`
+ * 通过可选注入接入：缺失时插件以默认设置与原始 key 文案工作，而不是整体失效。
  */
 export const inject = ['slots']
 
-/** `ctx.slots` 的最小形状：只取用到的 `entries`。 */
+/** `ctx.slots` 的最小形状：只取用到的 `entries` 与设置卡片注册所需的两个方法。 */
 interface SlotsService {
   entries(key: string): readonly StoredEntryLike[]
+  inject(key: string, callback: () => () => void): () => void
+  register(options: Record<string, unknown>, component: unknown): () => void
 }
 
-/** 带 `slots` 与事件订阅能力的客户端 context。 */
-type ClientContext = Context & {
+/**
+ * 带 `slots` 的客户端 context。
+ *
+ * 只补上本插件用到的成员（`slots` 与 `on`）；其余成员由动态代理在运行时
+ * 提供，不需要在类型层面出现。
+ */
+type ClientContext = AutoExpandClientContext & {
   readonly slots: SlotsService
-  on(name: string, listener: (...args: never[]) => void): () => void
 }
 
 /** 包裹目标：flow（single slot，无 key）。 */
@@ -126,8 +136,39 @@ function installWrappers(ctx: ClientContext): () => void {
 
 /**
  * 挂载浏览器半边。
+ *
+ * 两件事：
+ *  1. 包裹两个渲染组件——**核心功能**，只依赖 `slots`，永远挂载；
+ *  2. 设置卡片与两个开关——**可选功能**，`locale` 与 `configForms` 就绪时
+ *     才挂载。缺任意一个就让插件以默认值（全开）工作，而不是整体失效。
+ *
+ * 第 2 步用 `ctx.inject(deps, cb)` 而不是 `ctx.get()` 判空：`get()` 在
+ * `apply` 时刻读，服务晚到就永久错过；`inject` 没有这个竞态，且子作用域
+ * 随父 fiber 一起销毁，不需要手动清理。
  * @param ctx - 客户端 context，携带 slot 注册表。
  */
 export function apply(ctx: Context): void {
-  ctx.effect(() => installWrappers(ctx as ClientContext), 'dsh-auto-expand: 包裹 flow 与 assistant-step')
+  const client = ctx as unknown as AutoExpandClientContext
+
+  // ── 核心：渲染包裹 ──────────────────────────────────────────────────
+  client.effect(() => installWrappers(client), 'dsh-auto-expand: 包裹 flow 与 assistant-step')
+
+  // ── 可选：设置页 ────────────────────────────────────────────────────
+  client.inject(['locale', 'configForms'], (scope) => {
+    const scoped = scope as unknown as AutoExpandSettingsContext
+
+    scoped.effect(() => scoped.locale.register(SETTINGS_NS, { zh, en }), 'dsh-auto-expand: 字典')
+
+    // key 必须是本包的 bundle 名（见 settings-card.tsx 顶部注释）。
+    scoped.slots.inject('plugins.bundle.config', () => scoped.slots.register({
+      name: 'plugins.bundle.config',
+      key: 'dsh-auto-expand',
+      locale: SETTINGS_NS,
+    }, SettingsCard))
+
+    // 命名空间 = Host 半边的 Loader entry id，必须与 cordis.patch.yml 一致。
+    scoped.effect(() => attachSettingsForm(
+      scoped.configForms.get<Record<string, boolean>>(AUTO_EXPAND_NAMESPACE) as unknown as ConfigFormLike,
+    ), 'dsh-auto-expand: 接管设置')
+  })
 }

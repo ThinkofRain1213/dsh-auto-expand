@@ -210,6 +210,9 @@ const client = {
 /**
  * Host 半边。所有 harness 包保持 external：运行中的 Host 从自己的安装提供它们，
  * 打包副本会是第二个 cordis 实例（服务注册表与 instanceof 都按身份判断）。
+ *
+ * `schemastery` 同样必须 external：Host 用**它自己**的那份实现解析我们写出的
+ * 设置值，打包副本会是第二个 schema 实例（`instanceof` 与内部 Symbol 都不匹配）。
  */
 const node = {
   name: PACKAGE_NAME,
@@ -223,6 +226,7 @@ const node = {
   fixedExtension: false,
   external: [
     '@deepseek-ai/cordis',
+    '@deepseek-ai/schemastery',
   ],
 }
 

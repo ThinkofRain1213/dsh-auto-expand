@@ -1,0 +1,88 @@
+/**
+ * 设置卡片的样式。
+ *
+ * 每个数值都来自 DPG 的设置页规范（`spec/SETTINGS-SPEC.md`），而那份规范
+ * 的数值又是 DPG 实测自官方插件卡片的。**不要凭感觉改这些值。**
+ */
+
+/*
+ * 卡片自己的列容器，以及它存在的理由。
+ *
+ * 官方 `detailSection` 容器给子元素 `gap: 12px`。若卡片返回 Fragment
+ * （不生成元素），所有块都会变成它的直接子元素，被塞进那个 12px 间隔；
+ * 而官方插件卡片（终端 / 网页搜索）都包了一层内层 column，容器只看到
+ * 一个子元素。
+ *
+ * 因此 `gap` 必须是 0：间距由每块自己的 `padding` 提供。
+ */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/*
+ * 一个分组：标题 + 它介绍的若干行。
+ * `gap: 8px` 是标题与其下方行之间的距离。
+ */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+/*
+ * 分组标题：13px/**600**。
+ *
+ * 与 `.title` 同字号但重一档 —— 这是官方插件卡片的层级（子智能体：
+ * 分节标题 13/600，字段标签 13/500）。这一档字重差就是"标题"与
+ * "另一个行名称"的区别。
+ */
+.groupTitle {
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 19.5px;
+}
+
+/*
+ * 一行设置：名称/描述在左，控件在右。
+ * 几何照官方设置行（`PermissionRow` / `PreferenceRow`）。
+ */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+/*
+ * 名称/描述对。
+ * `gap: 6px` 是官方插件卡片里标签与其提示之间的距离。
+ * `padding-right: 48px` 给右侧控件留位。
+ */
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 48px;
+}
+
+/* 设置项名称：13px/500/19.5px。 */
+.title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 行的提示：12px/400/18px，三级标签色。 */
+.desc {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}

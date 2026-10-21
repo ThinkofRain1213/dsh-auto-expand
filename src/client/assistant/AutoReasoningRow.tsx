@@ -23,6 +23,7 @@ import { DisclosureRow, IconThinkOutlineRegular, TextShimmer } from '@deepseek-a
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ChatViewSlotProps, UsePresentation } from '../contract/slots.ts'
 import { useAutoDisclosure } from '../auto-disclosure.ts'
+import { useAutoExpandSettings } from '../settings.ts'
 import { GroupOpenContext } from '../group-open-context.ts'
 import a11yCss from '../flow/accessibility.module.css'
 import css from './AutoReasoningRow.module.css'
@@ -92,10 +93,14 @@ export const AutoReasoningRow = memo(function AutoReasoningRow({
 }: AutoReasoningRowProps) {
   // 所属 group 的展开状态：group 折叠时思考一并折叠（"先发生者"的一半）。
   const groupOpen = useContext(GroupOpenContext)
+  // 设置开关：关闭时该层回到官方行为（恒折叠）。
+  const settings = useAutoExpandSettings()
   // ── 核心改动：自动展开策略 ──────────────────────────────────────────────
   // 官方为 `useDisclosure()`（恒从折叠开始）。这里改为：
-  //   思考流式中 且 所属 group 展开 → 展开；任一条件变假 → 折叠。
-  const { open: expanded, toggle } = useAutoDisclosure(running && groupOpen)
+  //   思考流式中 且 所属 group 展开 且 开关开启 → 展开；任一条件变假 → 折叠。
+  const { open: expanded, toggle } = useAutoDisclosure(
+    settings.reasoningAutoExpand && running && groupOpen,
+  )
   const summaryText = running ? latestCompletedParagraphFirstLine(text) : firstLine(text)
   const summary = useMemo(() => summaryText.replaceAll('**', ''), [summaryText])
   const preview = usePresentation(policy => !expanded && summary !== ''

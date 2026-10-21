@@ -255,7 +255,11 @@ const reasoningAutoOpen = running && groupOpen
 需要额外处理：
 
 - **可访问性**：折叠时若焦点在内部，应先 `reveal` 而不是直接隐藏（官方 `useSearchableHidden` 已有此保护，我们沿用注入的 `useGroupAction`，无需自行处理）。
-- **与官方 `disclosureReset` 的兼容**：`AutoNodeSeat` 保留官方的 reset 机制（`ChatNodeSeat.tsx:120-124`），使 group 隐藏时内层思考一并重置。这与 5.4 的 `groupOpen` 判据互为冗余保险。
+- **与官方 `disclosureReset` 的关系**：`AutoNodeSeat` 保留官方的 reset 计算
+  （`ChatNodeSeat.tsx:115-124`），但本插件在 assistant-step 这条链路上把
+  `useDisclosure` 断开了（`AutoReasoningRow` 用 `useAutoDisclosure`），因此
+  **思考行不消费它**。后果与理由见 `ARCHITECTURE.md` 5.5——这是有意的差异，
+  不是冗余保险。
 
 ### 6.2 `AutoFlow`（克隆 `ChatFlow`，61 → 约 70 行）
 

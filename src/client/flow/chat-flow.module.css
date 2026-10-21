@@ -44,6 +44,24 @@
   height: 0;
 }
 
+/* 反制官方那份兄弟间距规则。
+ *
+ * 官方 `ChatView.module.css:68-73` 用**官方** CSS Modules 的 `.flowItem` 哈希
+ * 类名作为"是否空行"的判据。本插件渲染的行带的是插件自己的哈希类名，官方那份
+ * 对插件行恒判为"非空"，于是空的 assistant-step 也会拿到 `margin-top: 6px`。
+ * 插件自己那份规则（上面 20-23 行）判断是对的，但拦不住官方那份。
+ *
+ * 为什么用 `!important`：覆盖的是**另一份样式表**，特异性只能靠堆叠追平
+ * （官方那条为 0,5,0），而胜负取决于两份 CSS 的注入顺序——不完全可控。
+ * 这里的值恒为 0、选择器只命中插件自己的空行，`!important` 的副作用范围明确。
+ *
+ * 为什么不能给空行加 `hidden`：官方注释说明空座位用 `height: 0` 而不是隐藏，
+ * 是为了保留 Turn 查找能力（`display: none` 的元素无法用于测量）。 */
+:global([data-slot="conversation.chat.flow"])
+  > .flowItem:is(:empty, :has(> :global([data-slot="conversation.chat.node"]):empty)) {
+  margin-top: 0 !important;
+}
+
 /* 运行指示器：底部状态行。 */
 .running {
   display: flex;

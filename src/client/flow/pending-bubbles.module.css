@@ -1,5 +1,5 @@
 /**
- * 克隆自 `chat/MessageItem.module.css`（`.userRow` / `.actions`）与
+ * 克隆自 `chat/MessageItem.module.css`（`.userRow`）与
  * `chat/MessageIconActions.module.css`（图标行样式）。
  *
  * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
@@ -13,11 +13,6 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
-}
-
-/* 操作行右侧与气泡对齐时使用的内缩。 */
-.actions {
-  padding-right: 4px;
 }
 
 /* 用户与 pending bubble 共用的 IconActions 行。 */

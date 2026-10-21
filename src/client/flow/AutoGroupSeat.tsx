@@ -69,7 +69,7 @@ const PROCESS_ICONS: Record<ProcessTitleActivity, ReactNode> = {
   search: <IconSearchOutlineRegular size={14} />,
   edit: <IconEditOutlineRegular size={14} />,
   write: <IconEditOutlineRegular size={14} />,
-  webSearch: <IconGlobeOutlineRegular size={14} />,
+  webSearch: <IconGlobeOutlineRegular />,
   webFetch: <IconBrowseOutlineRegular size={14} />,
   subagents: <IconAgentPresetOutlineRegular size={14} />,
   plan: <IconPlanOutlineRegular />,

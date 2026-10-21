@@ -250,7 +250,81 @@ pnpm drift       ✅ 无漂移：29 个上游来源全部与记录一致
 
 ---
 
-## 8. 新增/修改的文件
+## 8. 克隆完整性审计
+
+漂移检测只能发现"上游变了"，发现不了"当初就没抄全"。P4 的事故正是后者，所以
+本阶段对 23 个克隆文件做了一次全量审计。
+
+### 8.1 方法
+
+| 手段 | 覆盖 |
+|---|---|
+| `git diff --no-index` 全量 diff | 所有 TS/CSS 克隆 |
+| 剥离注释后按代码行归一化对比 | 排除注释中译的干扰 |
+| CSS 字节级对比 | 4 个 `verbatim` CSS |
+| 每个 `css.xxx` 是否有对应定义 | 找出悬空的类名引用 |
+| props 转发专项 | 四条转发链逐个核对 |
+
+基准 commit `687f282e86`；`spec/upstream.json` 记录的 17 个上游文件哈希与 checkout
+全部吻合（说明上游无漂移）。
+
+### 8.2 结论
+
+**没有发现"整段上游代码 / 条件分支 / early return 在克隆里消失"的实质缺失。**
+所有 TS 差异都能归到文件头声明的修改点；4 个 `verbatim` CSS 字节级相同;
+props 转发四条链**没有漏传**。
+
+### 8.3 修掉的三处
+
+| 问题 | 处理 |
+|---|---|
+| `PROCESS_ICONS.webSearch` 用了 `size={14}`（上游默认 16），且未在头部声明 | 恢复官方值 |
+| `pending-bubbles.module.css` 多出 `.actions { padding-right: 4px }`（上游 `MessageItem.module.css` **没有** `.actions` 类，`MessageItem.tsx` 的 `css.actions` 运行时是 `undefined`） | 删除，图标行左移 4px 的偏差消失 |
+| manifest 把 `PendingIconActions.tsx`、`message-chrome.ts` 标成 `verbatim`（实际裁了分支） | 改为 `partial` 并注明裁掉了什么 |
+
+### 8.4 修掉的一处样式冲突：空 assistant-step 的 6px
+
+**根因**：官方 `ChatView.module.css:68-73` 的兄弟间距规则用**官方** CSS Modules 的
+`.flowItem` 哈希类名判断"是否空行"。本插件渲染的行带的是插件自己的哈希类名，
+所以官方那份对插件行**恒判为"非空"**——空的 assistant-step 也会拿到
+`margin-top: 6px`。插件自己那份规则判断是对的，但拦不住官方那份。
+
+**影响**：一个 Turn 里每个"只有工具调用、没有文本/思考"的 step 会多 6px；
+工具调用频繁的 Turn 会累积出明显空白。
+
+**修法**（`chat-flow.module.css`）：用插件自己的类名把空行的 margin 显式归零，
+特异性与官方那条追平后用 `!important` 保证胜负不依赖注入顺序。值恒为 0、
+选择器只命中插件空行，副作用范围明确。
+
+不能给空行加 `hidden`：官方注释明确说空座位用 `height: 0` 而不是隐藏，是为了
+保留 Turn 查找能力（`display: none` 的元素无法用于测量）。
+
+### 8.5 记录下来的两处（不改代码）
+
+**① 思考行不再消费 `disclosureReset`**
+
+`AutoAssistantNodeView` 不再透传 `useDisclosure`，所以手动展开的**已结算**思考行，
+在整轮被 `processHidden` 隐藏再显示后不会像官方那样回到折叠。
+
+这是**有意差异**：`useAutoDisclosure` 的语义是"用户覆盖持续到自动状态改变"，
+用户显式展开的内容不该因为整轮折叠而丢失；组件重挂载本身提供了边界。
+`ARCHITECTURE.md` 5.5 已重写（旧版称"两套机制互为冗余"是错的——冗余需要两套都
+生效，这条链路上的 reset 没有消费者），`DESIGN.md` 与 `PLAN.md` 的相应说法也一并更正。
+
+**② `open` 初始值从恒 false 变为 `!closed` 的首帧影响**
+
+自动展开必然改变 `capped` / `data-chat-paging-anchor` 的首帧取值。已由
+`scroll-align.ts` 补定位，但"刚结束的 Turn"那一帧是否抖动需要真机确认。
+
+### 8.6 真机待确认清单
+
+1. 只有工具调用、没有 text/reasoning 的 assistant step 处，行距是否与官方一致（8.4 的修复）。
+2. "刚结束的 Turn"那一帧是否跳动（8.5 ②）。
+3. `web-search` 活动图标恢复 16px 后的大小是否正常。
+
+---
+
+## 9. 新增/修改的文件
 
 | 文件 | 作用 |
 |---|---|
@@ -268,11 +342,15 @@ pnpm drift       ✅ 无漂移：29 个上游来源全部与记录一致
 
 ---
 
-## 9. 已知限制与后续
+## 10. 已知限制与后续
 
 - **漂移检测依赖源码 checkout**。只有 npm 包时只能比对包版本，比对不了文件内容。
   如果以后 DSH 发布包含 `src/`，可以把 `.d.ts`/源码哈希也纳入。
 - **`partial` 类条目的变化只报"需人工复核"**，无法自动判断摘取的那几行是否受影响。
 - **没有 CI**。`pnpm verify:full`（含 drift）适合本地跑，但 drift 在没有 checkout
   的机器上退出码是 2，接入 CI 时要按 2 = 跳过处理。
+- **原地包裹 + 类名哈希的固有代价**：官方 CSS 里以官方类名为条件的规则，对插件
+  渲染的行会一律走"另一个分支"。本阶段发现的 `.flowItem` 空行问题已用
+  `!important` 反制；**如果以后真机发现别处间距不对，第一个怀疑对象就是这类规则**，
+  而不是克隆的 CSS 写错了。
 - **折叠时机仍不可配置**，工具行自动展开仍未实现（见 `spec/P4-ROLLBACK.md`）。

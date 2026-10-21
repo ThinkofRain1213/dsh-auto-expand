@@ -185,7 +185,7 @@ AutoFlow (props: ChatFlowSlotProps)
 | 93-103 | `turnProcess` useMemo | **原样** |
 | 104-110 | `controllerInactive` / `compactAnswer` / `processHidden` | **原样** |
 | 111-114 | `revealProcess` / `useGroupAction` | **原样** |
-| 115-124 | `disclosureReset` + 重置 effect | **原样**（第三层的免费保险） |
+| 115-124 | `disclosureReset` + 重置 effect | **原样**（但它只服务官方 tool 行，见 5.5） |
 | 125-139 | `owner` useMemo | **原样** |
 | 140-174 | 渲染 | 原样 |
 
@@ -338,16 +338,41 @@ const { open, toggle } = useAutoDisclosure(running && groupOpen)
 
 两者任一先发生，`autoOpen` 都变 false，`useAutoDisclosure` 清空 override 并折叠。**无需额外逻辑。**
 
-### 5.5 双层保险
+### 5.5 `disclosureReset` 的实际归属（一处需要更正的旧说法）
 
-官方 `ChatNodeSeat` 已有机制（`ChatNodeSeat.tsx:120-124`）：group 隐藏时递增 `disclosureReset`，`useDisclosure` 检测版本变化即重置。
+官方 `ChatNodeSeat` 有这套机制（`ChatNodeSeat.tsx:115-124`）：group 隐藏时递增
+`disclosureReset`，`useDisclosure` 检测版本变化即重置。链路是
 
-我们的 `AutoReasoningRow` **不消费** `disclosureReset`（用 `useAutoDisclosure` 代替），但：
+```
+ChatNodeSeat → AssistantNodeView(props.useDisclosure) → AssistantMarkdown
+  → ReasoningRow → useDisclosure() 读 reset 版本
+```
 
-- `AutoNodeSeat` 保留该机制（原样）
-- 若 group 隐藏发生在 `GroupOpenContext` 更新之前，`disclosureReset` 也会触发内层重置
+**本插件在这条链路上把 `useDisclosure` 断开了**：`AutoAssistantNodeView` 不再接收
+也不再透传它，`AutoReasoningRow` 用的是 `useAutoDisclosure`。因此：
 
-两套机制互为冗余。实测若发现冗余导致问题，可移除其一。
+| 组件 | 是否消费 `disclosureReset` |
+|---|---|
+| `AutoNodeSeat` | 计算并保留（供官方 tool 行使用） |
+| 官方 tool-call 行（`ui-tool`） | ✅ 消费 —— 那些行不在本插件的接管范围内 |
+| `AutoAssistantNodeView` → `AutoReasoningRow` | ❌ **不消费** |
+
+**实际后果**：手动展开的**已结算**思考行，在整轮被 `processHidden` 隐藏再显示后，
+不会像官方那样回到折叠，而是保持展开。
+
+**这是有意的差异，不是遗漏**。理由：
+
+- 官方的 `disclosureReset` 是给"临时展开"兜底的——它没有自动展开概念，手动展开
+  的状态在上下文消失后应该复位；
+- 本插件 `useAutoDisclosure` 的语义是"用户覆盖持续到自动状态改变"，用户显式展开
+  的内容不应因为整轮折叠而丢失；
+- 组件的挂载身份本身提供了一层边界：切换会话再回来，组件重挂载，覆盖自然失效。
+
+若将来要与官方完全一致，做法是把 `disclosureReset` 的值作为 `useAutoDisclosure`
+的额外丢弃条件（`autoOpen` 之外再加一个 `resetKey`）。
+
+> **旧版本本节曾称"两套机制互为冗余"，那是错的**——冗余需要两套都生效，而这条
+> 链路上的 reset 没有任何消费者。审计（2026-10-22）确认了这一点。
 
 ---
 

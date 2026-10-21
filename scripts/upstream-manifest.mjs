@@ -118,7 +118,9 @@ export const ENTRIES = [
   {
     local: 'src/client/flow/message-chrome.ts',
     sources: ['ui-chat:chat/message-chrome.ts'],
-    kind: 'verbatim',
+    // 未克隆 `formatTokensPerSecond`（全仓无引用）；`formatRunDuration` 与
+    // `LIVE_RUN_CLOCK_INTERVAL_MS` 挪到了 flow-utils。
+    kind: 'partial',
   },
   {
     local: 'src/client/flow/RunningStatus.tsx',
@@ -133,7 +135,10 @@ export const ENTRIES = [
   {
     local: 'src/client/flow/PendingIconActions.tsx',
     sources: ['ui-chat:chat/MessageIconActions.tsx'],
-    kind: 'verbatim',
+    // 裁掉了 branch / `[data-unavailable]` / extraActions / usageAction。
+    // pending 气泡只传 `clock="start"`（MessageItem.tsx:234/287），
+    // 因此这些分支在本插件这条路径上不可达——但上游新增分支时要复核。
+    kind: 'partial',
   },
 
   // ── 部分摘取 / 重实现 ───────────────────────────────────────────────

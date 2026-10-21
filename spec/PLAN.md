@@ -81,6 +81,8 @@ P6 发布与治理   ── 已完成 ─→  漂移检测、发布产物自检�
 - 否定两条路线（重注册 flow children / shadow assistant-step），确立"原地包裹"
 - 定义 `useAutoDisclosure` 状态机，用一个抽象同时服务两层
 - 确认官方已有 `disclosureReset` 机制可免费复用
+  ⚠️ **该假设后来被推翻**：把 `useDisclosure` 换成 `useAutoDisclosure` 后，
+  assistant-step 这条链路上 `disclosureReset` 没有消费者。见 `ARCHITECTURE.md` 5.5。
 
 ### 3.3 验收
 

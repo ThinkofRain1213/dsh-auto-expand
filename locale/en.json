@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Auto-expand Process",
+    "description": "Keep the running turn's work visible: process groups and reasoning expand automatically and fold once that work is done, leaving history untouched."
+  }
+}

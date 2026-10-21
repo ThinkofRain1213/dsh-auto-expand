@@ -1,0 +1,11 @@
+# dsh-auto-expand — DSH 可安装 bundle patch
+#
+# 本插件只做一件事：在浏览器端原地包裹两个已注册的渲染组件
+# （conversation.chat.flow 与 conversation.chat.node 的 assistant-step），
+# 因此不需要禁用或覆盖任何官方行，只需挂载自己。
+#
+# 顺序无关：patch 按 id 应用。
+
+- insert:
+    - id: auto-expand
+      name: dsh-auto-expand

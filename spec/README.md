@@ -8,8 +8,19 @@
 | [PLAN.md](PLAN.md) | 6 个阶段的规划、任务分解、验收标准、工程规范、风险治理、后续演进 | 想了解"项目怎么推进" |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 面向实现的架构规格：组件树、数据流、接口契约、关键算法、实现顺序 | 要动手写代码时 |
 | [SETTINGS-SPEC.md](SETTINGS-SPEC.md) | 插件详情页设置卡片的规范（槽位、间距、字体、控件、注册写法），摘自 dsh-project-groups 的实测 | 改设置页时 |
-| [SETTINGS-EXTENSION.md](SETTINGS-EXTENSION.md) | 新增「完整展示当前轮」开关与「历史轮次最大高度」输入的设计（**未实施**） | 要加新设置项时 |
+| [SETTINGS-EXTENSION.md](SETTINGS-EXTENSION.md) | 新增「完整展示当前轮」开关与「历史轮次最大高度」输入的设计（**暂缓实施**，留档备查） | 重提这两个需求时先读第 1 节 |
 | [MOTION-PLAN.md](MOTION-PLAN.md) | 折叠动画方案（**未实施**）：官方 flow-motion 的闸门为何默认不生效、三层滚动的真实差异、自建最小动画的接入点与坑 | 处理抖动问题时 |
+
+## 暂缓 / 已否决
+
+这两个文档记录的都是**没有实施**的方案，留着是为了避免重复踩坑：
+
+| 主题 | 结论 | 原因 |
+|---|---|---|
+| 折叠动画（`MOTION-PLAN.md`） | group body 用官方设置打开；思考块与「窗口外折叠」待做；内容增长滚动不可行 | 官方机制只在"运行中"窗口内生效 |
+| 设置扩展（`SETTINGS-EXTENSION.md`） | 设计完成，用户决定暂缓 | 需要时按第 9 节恢复 |
+| 思考块高度上限 | **否决** | 官方设计就是随对话流滚动，加限高会形成三层嵌套滚动 |
+| `capped` 翻转修正 | **已还原为官方写法** | 那是官方 bug，插件层长期偏离会抬高升级成本 |
 
 ## 阶段报告
 
@@ -58,6 +69,12 @@
 1. [FIX-SCROLL.md](FIX-SCROLL.md) 第 13 节 → **先读三条教训**（"scrollTop 变了"不等于"读者滚了"、一次性补丁要验证真的执行了、异步消费的意图必须有兑现路径）
 2. [MOTION-PLAN.md](MOTION-PLAN.md) → 动画的闸门在哪里、为什么默认不生效
 3. 这两处最容易重蹈 P4 的覆辙：接管一条有完整状态机的路径却没枚举它的分支
+
+### 要加新的设置项
+
+1. [SETTINGS-EXTENSION.md](SETTINGS-EXTENSION.md) **第 1 节** → `closed` / `deferCompletedTurns` / `grouped` 各管什么（这三个在讨论中被搞混过三次）
+2. [SETTINGS-SPEC.md](SETTINGS-SPEC.md) → 卡片结构、间距、字体、门控写法
+3. [ARCHITECTURE.md](ARCHITECTURE.md) 4.6 / 4.7 → 两个开关当前的耦合关系
 
 ### 升级 DSH 之后
 

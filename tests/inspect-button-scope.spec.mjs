@@ -66,3 +66,32 @@ test('取值列表：三个、顺序固定、默认 off', () => {
   assert.equal(new Set(INSPECT_BUTTON_HIDE_SCOPES).size, 3)
   assert.equal(DEFAULT_INSPECT_BUTTON_HIDE_SCOPE, 'off')
 })
+
+// ── 包裹层透传契约 ──────────────────────────────────────────────────────
+
+test('包裹层透传契约：档位 × 当前轮状态 × 原始值 → 传给 Inner 的值', () => {
+  // 对应 AutoToolCallTree 里的 `inspectCall={inspectCallFor({...})}`。
+  // 渲染层无法在 node:test 里挂载，所以用判据函数钉住"包裹层会传什么"。
+  // 这七种组合覆盖了当前轮/历史轮 × 三档的关键交叉。
+  const cases = [
+    // [档位, group.auto, 原始值是否为 undefined, 期望是否原样透传]
+    ['off', true, false, true],
+    ['off', false, false, true],
+    ['current', true, false, false],
+    ['current', false, false, true],
+    ['all', true, false, false],
+    ['all', false, false, false],
+    ['all', true, true, false],
+    ['current', false, true, false],
+  ]
+  for (const [scope, auto, missing, shouldPassThrough] of cases) {
+    const original = missing ? undefined : CALL
+    const result = inspectCallFor({ scope, auto, inspectCall: original })
+    const label = `scope=${scope} auto=${auto} 原始值=${missing ? 'undefined' : 'callback'}`
+    if (shouldPassThrough) {
+      assert.equal(result, CALL, `${label} 应原样透传`)
+    } else {
+      assert.equal(result, undefined, `${label} 应返回 undefined（不渲染按钮）`)
+    }
+  }
+})

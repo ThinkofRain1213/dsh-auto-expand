@@ -34,9 +34,22 @@
  * 为什么必须用 context：官方 `useDisclosure` 的契约是**无参调用**，hook 拿不到
  * 调用它的那一行的任何数据。context 是在不克隆官方组件的前提下，把这些
  * 节点级信号送到每一行 hook 里的唯一通道。
+ *
+ * ## P9：覆盖 `inspectCall`（第二个被覆盖的 prop）
+ *
+ * 官方工具行的「查看」按钮由 `inspect !== undefined` 一个信号决定，而 `inspect`
+ * 由 `ToolCallTree` 从 props 的 `inspectCall` 派生。包裹层因此按用户设置决定
+ * **是否把 `inspectCall` 透传下去**：置空后，三个按钮（`ToolRow` /
+ * `QuestionToolRow` / `bash-sample`）、`ToolDetails` 给按钮让位的 88px 内边距、
+ * 以及按钮预留的那一行高度会**一起**消失——不改 CSS，不克隆 `ToolRow`。
+ *
+ * 判据见 `../inspect-button-scope.ts`。
  */
-import { useMemo, useRef, type ComponentType } from 'react'
+import { useContext, useMemo, useRef, type ComponentType } from 'react'
 import { toolStarted } from '../collapse-timing.ts'
+import { inspectCallFor } from '../inspect-button-scope.ts'
+import { GroupOpenContext } from '../group-open-context.ts'
+import { useAutoExpandSettings } from '../settings.ts'
 import { ToolRowContext, type ToolRowState } from './tool-row-context.ts'
 import { useAutoToolDisclosure } from './use-tool-disclosure.ts'
 
@@ -119,16 +132,35 @@ export function makeAutoToolCallTree(inner: ComponentType<never>): ComponentType
       () => ({ step, anchorSeq, started, done }),
       [step, anchorSeq, started, done],
     )
+    // ── P9：按设置决定是否透传 `inspectCall` ───────────────────────────────
+    // 必须订阅设置（`useAutoExpandSettings`），不能在 `apply()` 时读一次快照：
+    // 否则用户切换档位后，已经挂载的行不会响应，要刷新页面才生效。
+    //
+    // `group.auto` 标识「该操作组处于当前轮的自动展开窗口」，与操作组开关、
+    // 思考/工具开关同源——这里直接复用它判断「当前轮」。
+    const settings = useAutoExpandSettings()
+    const group = useContext(GroupOpenContext)
+    const inspectCall = inspectCallFor({
+      scope: settings.inspectButtonHideScope,
+      auto: group.auto,
+      inspectCall: props.inspectCall as ((callId: string) => void) | undefined,
+    })
     return (
       <ToolRowContext.Provider value={state}>
         {/*
-          只覆盖 `useDisclosure`，其余 props 原样透传。
+          覆盖两个 prop，其余原样透传：
+          - `useDisclosure`：自动展开策略；
+          - `inspectCall`：查看按钮的隐藏范围。
+
+          显式传 `undefined` 而不是空函数或 `null`——官方判的是
+          `inspect !== undefined`，空函数会造出一个渲染出来、点了没反应的
+          按钮，比不隐藏更糟。
 
           直接传模块级函数、不包 `useMemo`：官方 `ToolCall` 把 `useDisclosure`
           列入 `useMemo` 依赖（`ui-tool/.../ToolCallTree.tsx:39`），而模块级函数
           的引用天然恒定——内联新建函数会让官方的 `owner` 对象每次渲染重建。
         */}
-        <Inner {...props} useDisclosure={useAutoToolDisclosure} />
+        <Inner {...props} useDisclosure={useAutoToolDisclosure} inspectCall={inspectCall} />
       </ToolRowContext.Provider>
     )
   }

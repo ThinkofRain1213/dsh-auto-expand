@@ -4,3 +4,6 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# superpowers SDD 工作目录（每个计划的 ledger / brief，git 忽略）
+.superpowers/

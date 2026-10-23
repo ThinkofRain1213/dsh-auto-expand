@@ -2,6 +2,10 @@
 
 DSH 插件：让**正在进行的**工作过程默认可见。
 
+> 目标版本 DSH `0.2.1`（`engines.dsh` 限定在 `0.2.1.x`）。
+> 插件通过**原地包裹**官方渲染组件工作，不重新注册任何 slot；
+> 所有包裹失败都会静默降级为官方行为，绝不让 DSH 崩溃。
+
 ## 解决什么问题
 
 DSH 默认把工作过程折叠成三层：
@@ -142,7 +146,7 @@ DSH 默认把工作过程折叠成三层：
 | [spec/ARCHITECTURE.md](spec/ARCHITECTURE.md) | 技术架构与机制细节 |
 | [spec/PLAN.md](spec/PLAN.md) | 阶段计划 |
 | [spec/SETTINGS-SPEC.md](spec/SETTINGS-SPEC.md) | 设置页规范（摘自 dsh-project-groups 实测） |
-| [spec/P8-PLAN.md](spec/P8-PLAN.md) | 思考 / 工具收起时机的实施计划（**三个语义对齐的时机**） |
+| [spec/P8-PLAN.md](spec/P8-PLAN.md) | 思考 / 工具收起时机的实施计划（**四个统一时机**） |
 | [spec/P7-PLAN.md](spec/P7-PLAN.md) | 工具结果自动展开的实施计划 |
 | [spec/P4-ROLLBACK.md](spec/P4-ROLLBACK.md) | 工具结果自动展开的第一次尝试为何回滚（**第 9 节：路径已重新打开**） |
 

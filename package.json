@@ -5,6 +5,14 @@
   "license": "MIT",
   "type": "module",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ThinkofRain1213/dsh-auto-expand.git"
+  },
+  "homepage": "https://github.com/ThinkofRain1213/dsh-auto-expand#readme",
+  "bugs": {
+    "url": "https://github.com/ThinkofRain1213/dsh-auto-expand/issues"
+  },
   "main": "lib/index.js",
   "types": "./src/index.ts",
   "exports": {
@@ -46,7 +54,8 @@
     "cordis.patch.yml",
     "icon.svg",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsdown",

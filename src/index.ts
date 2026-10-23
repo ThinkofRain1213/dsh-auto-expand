@@ -26,6 +26,7 @@ export const REASONING_AUTO_EXPAND_FIELD = 'reasoningAutoExpand'
 export const TOOL_AUTO_EXPAND_FIELD = 'toolAutoExpand'
 export const REASONING_COLLAPSE_TIMING_FIELD = 'reasoningCollapseTiming'
 export const TOOL_COLLAPSE_TIMING_FIELD = 'toolCollapseTiming'
+export const INSPECT_BUTTON_HIDE_SCOPE_FIELD = 'inspectButtonHideScope'
 
 /** 三个开关的默认值：默认全开（插件的核心价值）。 */
 export const DEFAULT_GROUP_AUTO_EXPAND = true
@@ -66,6 +67,28 @@ export type ToolCollapseTiming = CollapseTiming
 export const DEFAULT_REASONING_COLLAPSE_TIMING: ReasoningCollapseTiming = 'next-node'
 export const DEFAULT_TOOL_COLLAPSE_TIMING: ToolCollapseTiming = 'next-node'
 
+/**
+ * 「查看」按钮的隐藏范围取值，**顺序 = 下拉展示顺序 = 从松到紧**。
+ *
+ * - `'off'`：不隐藏（**默认**），逐字等价于未安装本插件；
+ * - `'current'`：仅当前轮隐藏，历史操作组保持官方行为；
+ * - `'all'`：全部轮次隐藏。
+ *
+ * 与浏览器半边的 `src/client/inspect-button-scope.ts` 必须逐字一致
+ * （`contract-consistency` 测试会守住）。
+ */
+export const INSPECT_BUTTON_HIDE_SCOPES = ['off', 'current', 'all'] as const
+
+/** 查看按钮的隐藏范围。 */
+export type InspectButtonHideScope = typeof INSPECT_BUTTON_HIDE_SCOPES[number]
+
+/**
+ * 隐藏范围的默认值：`'off'`（不隐藏）。
+ *
+ * ⚠️ 必须是 `off`：改成别的会让已安装用户升级后**凭空少一个入口**。
+ */
+export const DEFAULT_INSPECT_BUTTON_HIDE_SCOPE: InspectButtonHideScope = 'off'
+
 /** 本插件的持久化设置。 */
 export interface AutoExpandSettings {
   /** 当前运行的 process group body 是否自动展开。 */
@@ -78,6 +101,8 @@ export interface AutoExpandSettings {
   reasoningCollapseTiming: ReasoningCollapseTiming
   /** 工具行的收起时机（与思考同一取值集合）。 */
   toolCollapseTiming: ToolCollapseTiming
+  /** 工具行「查看」按钮的隐藏范围。 */
+  inspectButtonHideScope: InspectButtonHideScope
 }
 
 /** 运行时设置投影到浏览器。 */
@@ -87,6 +112,7 @@ export interface Config {
   toolAutoExpand: Volatile<boolean>
   reasoningCollapseTiming: Volatile<ReasoningCollapseTiming>
   toolCollapseTiming: Volatile<ToolCollapseTiming>
+  inspectButtonHideScope: Volatile<InspectButtonHideScope>
 }
 
 /**
@@ -105,6 +131,8 @@ export const Config = z.object({
     .default(DEFAULT_REASONING_COLLAPSE_TIMING).volatile(),
   [TOOL_COLLAPSE_TIMING_FIELD]: z.union([...COLLAPSE_TIMINGS])
     .default(DEFAULT_TOOL_COLLAPSE_TIMING).volatile(),
+  [INSPECT_BUTTON_HIDE_SCOPE_FIELD]: z.union([...INSPECT_BUTTON_HIDE_SCOPES])
+    .default(DEFAULT_INSPECT_BUTTON_HIDE_SCOPE).volatile(),
 })
 
 /**

@@ -16,6 +16,9 @@ import { useSyncExternalStore } from 'react'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { writeOptimistic } from './settings-write.ts'
 import type { CollapseTiming } from './collapse-timing.ts'
+import {
+  DEFAULT_INSPECT_BUTTON_HIDE_SCOPE, type InspectButtonHideScope,
+} from './inspect-button-scope.ts'
 
 /** 本插件设置命名空间（= Host 半边在 `cordis.patch.yml` 里的 entry id）。 */
 export const AUTO_EXPAND_NAMESPACE = 'auto-expand'
@@ -26,14 +29,16 @@ export const REASONING_AUTO_EXPAND_FIELD = 'reasoningAutoExpand'
 export const TOOL_AUTO_EXPAND_FIELD = 'toolAutoExpand'
 export const REASONING_COLLAPSE_TIMING_FIELD = 'reasoningCollapseTiming'
 export const TOOL_COLLAPSE_TIMING_FIELD = 'toolCollapseTiming'
+export const INSPECT_BUTTON_HIDE_SCOPE_FIELD = 'inspectButtonHideScope'
 
-/** 默认设置：三个开关默认全开；两个时机默认「下一批操作出现时」。 */
+/** 默认设置：三个开关默认全开；两个时机默认「下一批操作出现时」；查看按钮不隐藏。 */
 export const DEFAULT_SETTINGS: AutoExpandSettings = {
   groupAutoExpand: true,
   reasoningAutoExpand: true,
   toolAutoExpand: true,
   reasoningCollapseTiming: 'next-node',
   toolCollapseTiming: 'next-node',
+  inspectButtonHideScope: DEFAULT_INSPECT_BUTTON_HIDE_SCOPE,
 }
 
 /** 本插件设置的可观察快照。 */
@@ -45,6 +50,8 @@ export interface AutoExpandSettings {
   readonly reasoningCollapseTiming: CollapseTiming
   /** 工具的收起时机（与思考同一取值集合）。 */
   readonly toolCollapseTiming: CollapseTiming
+  /** 工具行「查看」按钮的隐藏范围。 */
+  readonly inspectButtonHideScope: InspectButtonHideScope
 }
 
 /** `configForms.get()` 返回的最小契约（只取本插件用到的部分）。 */
@@ -84,6 +91,8 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
       reasoningCollapseTiming:
         value?.reasoningCollapseTiming ?? DEFAULT_SETTINGS.reasoningCollapseTiming,
       toolCollapseTiming: value?.toolCollapseTiming ?? DEFAULT_SETTINGS.toolCollapseTiming,
+      inspectButtonHideScope:
+        value?.inspectButtonHideScope ?? DEFAULT_SETTINGS.inspectButtonHideScope,
     }
   }
 
@@ -94,7 +103,8 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
       && next.reasoningAutoExpand === current.reasoningAutoExpand
       && next.toolAutoExpand === current.toolAutoExpand
       && next.reasoningCollapseTiming === current.reasoningCollapseTiming
-      && next.toolCollapseTiming === current.toolCollapseTiming) return
+      && next.toolCollapseTiming === current.toolCollapseTiming
+      && next.inspectButtonHideScope === current.inspectButtonHideScope) return
     settingsSource.set(next)
   }
 

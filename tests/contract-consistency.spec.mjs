@@ -90,19 +90,20 @@ test('Host schema 字段名 === Client 字段名', () => {
   // 新增字段时**必须**把字段名加进这个正则，否则它不受本契约保护
   // ——P7 的 tool 字段最初就漏在这里（当时只有 GROUP/REASONING 两支），
   // 字段名写错也不会报错，只在运行时被静默忽略。
-  // P8 又加了两个 COLLAPSE_TIMING 字段，同样必须进这个清单。
+  // P8 又加了两个 COLLAPSE_TIMING 字段，P9 加了隐藏范围字段，同样必须进清单。
   // 正则字面量不能跨行，所以用 `new RegExp` 拼装（可读性优于超长单行）。
   const fieldPattern = () => new RegExp(
     '(GROUP|REASONING|TOOL)_AUTO_EXPAND_FIELD\\s*=\\s*\'([^\']+)\''
-    + '|(REASONING|TOOL)_COLLAPSE_TIMING_FIELD\\s*=\\s*\'([^\']+)\'',
+    + '|(REASONING|TOOL)_COLLAPSE_TIMING_FIELD\\s*=\\s*\'([^\']+)\''
+    + '|INSPECT_BUTTON_HIDE_SCOPE_FIELD\\s*=\\s*\'([^\']+)\'',
     'g',
   )
-  /** 取值：正则的第 2 组或第 4 组（取决于命中的是哪个分支）。 */
-  const valueOf = (match) => match[2] ?? match[4]
+  /** 取值：正则的第 2 / 4 / 6 组（取决于命中的是哪个分支）。 */
+  const valueOf = (match) => match[2] ?? match[4] ?? match[6]
   const hostFields = [...hostSource.matchAll(fieldPattern())].map(valueOf)
   const clientFields = [...clientSettings.matchAll(fieldPattern())].map(valueOf)
-  assert.equal(hostFields.length, 5, `Host 侧应声明 5 个字段，实际 ${hostFields.length}`)
-  assert.equal(clientFields.length, 5, `Client 侧应声明 5 个字段，实际 ${clientFields.length}`)
+  assert.equal(hostFields.length, 6, `Host 侧应声明 6 个字段，实际 ${hostFields.length}`)
+  assert.equal(clientFields.length, 6, `Client 侧应声明 6 个字段，实际 ${clientFields.length}`)
   assert.deepEqual(clientFields, hostFields,
     '两边的字段名必须逐字一致：client 按字段名写 Host 设置文档，写错时写入会被静默忽略')
 })
@@ -194,6 +195,65 @@ test('两个下拉共用同一份选项（思考与工具对称）', () => {
   assert.equal(/toolTimingOptions/.test(source), false, '不应再有工具专用选项列表')
   const usages = [...source.matchAll(/options=\{(\w+)\}/g)].map(match => match[1])
   assert.deepEqual(usages, ['timingOptions', 'timingOptions'], '两个下拉必须共用 timingOptions')
+})
+
+// ── P9：查看按钮的隐藏范围 ──────────────────────────────────────────────
+
+test('隐藏范围取值列表两端一致', () => {
+  /**
+   * 从源码里取出某个数组字面量的成员。
+   *
+   * 用 `\b` 加左边界：否则短名会命中长名的后缀（与 COLLAPSE_TIMINGS 同款问题）。
+   * @param {string} source - 源码文本。
+   * @param {string} name - 常量名。
+   * @returns {string[]} 成员列表。
+   */
+  const membersOf = (source, name) => {
+    const block = new RegExp(`\\b${name}[^=\\n]*=\\s*\\[([^\\]]*)\\]`).exec(source)
+    assert.ok(block !== null, `找不到 ${name} 的定义`)
+    return [...block[1].matchAll(/'([^']+)'/g)].map(match => match[1])
+  }
+  assert.deepEqual(
+    membersOf(read('src/client/inspect-button-scope.ts'), 'INSPECT_BUTTON_HIDE_SCOPES'),
+    membersOf(hostSource, 'INSPECT_BUTTON_HIDE_SCOPES'),
+    '两端必须逐字一致，否则 Host 会拒写 Client 发来的枚举值',
+  )
+  assert.deepEqual(membersOf(hostSource, 'INSPECT_BUTTON_HIDE_SCOPES'), ['off', 'current', 'all'],
+    '顺序 = 下拉展示顺序 = 从松到紧')
+})
+
+test('隐藏范围默认值三处一致且为 off', () => {
+  // 默认值必须是 off：改成别的会让已安装用户升级后凭空少一个入口。
+  const hostDefault = capture(hostSource,
+    /DEFAULT_INSPECT_BUTTON_HIDE_SCOPE:\s*\w+\s*=\s*'([^']+)'/, 'Host 隐藏范围默认值')
+  const clientDefault = capture(read('src/client/inspect-button-scope.ts'),
+    /DEFAULT_INSPECT_BUTTON_HIDE_SCOPE:\s*\w+\s*=\s*'([^']+)'/, 'Client 隐藏范围默认值')
+  assert.equal(hostDefault, 'off', '默认必须是 off，保证已安装用户行为不变')
+  assert.equal(clientDefault, hostDefault, '判据模块与 Host 的默认值不一致')
+  // 客户端快照引用上面那个常量（单一数据源），因此这里断言的是"引用关系"
+  // 而不是重复写一遍字面量——两处各写一个 'off' 反而会漂移。
+  assert.match(clientSettings,
+    /inspectButtonHideScope:\s*DEFAULT_INSPECT_BUTTON_HIDE_SCOPE/,
+    '客户端快照的默认值必须引用 DEFAULT_INSPECT_BUTTON_HIDE_SCOPE，避免与判据模块漂移')
+})
+
+test('schema 里隐藏范围字段用取值列表做 union', () => {
+  // 用 z.string() 而非 union 时 Host 会接受任意值，写入端先坏在这里。
+  assert.match(hostSource,
+    /INSPECT_BUTTON_HIDE_SCOPE_FIELD\]:\s*z\.union\(\[\.\.\.INSPECT_BUTTON_HIDE_SCOPES\]\)/,
+    '字段必须用 z.union([...INSPECT_BUTTON_HIDE_SCOPES])，否则 Host 会接受非法值')
+})
+
+test('客户端快照接管时把隐藏范围读进设置', () => {
+  // attachSettingsForm 的 read() 逐字段取值，漏一个字段会让该设置永远停在默认值：
+  // UI 上能改、写进 Host 也成功，但渲染层读到的还是旧值——不报错、只是不生效。
+  const source = read('src/client/settings.ts')
+  assert.match(source,
+    /inspectButtonHideScope:\s*\n?\s*value\?\.inspectButtonHideScope\s*\?\?\s*DEFAULT_SETTINGS\.inspectButtonHideScope/,
+    'attachSettingsForm 的 read() 必须读取 inspectButtonHideScope')
+  assert.match(source,
+    /&&\s*next\.inspectButtonHideScope\s*===\s*current\.inspectButtonHideScope/,
+    'sync() 的比较必须包含 inspectButtonHideScope，否则该字段变化不会通知订阅者')
 })
 
 test('四个时机的文案键在思考与工具两侧都齐备', () => {

@@ -49,6 +49,37 @@
 | B4 | **工具收起时机** | 工具行 | 手动 | ✅ 四选一，默认「下一批操作出现时」 | ✅ P8 |
 | B5 | 整轮收起时机 | `turn-process` | `completion` / `next-input` | 未接管 | ✅ 官方 |
 
+### 1.3 C 组：官方入口的收纳（✅ P9）
+
+| # | 能力 | 作用对象 | 官方现状 | 插件现状 | 状态 |
+|---|---|---|---|---|---|
+| C1 | **查看按钮的隐藏范围** | `ToolRow` 的 `inspectButton` | 悬停显现，不可配置 | ✅ 三选一：不隐藏（默认）/ 仅当前轮 / 全部轮次 | ✅ P9 |
+| C2 | 工具行按工具细分策略 | 按工具名 / 类别 | — | 未做 | ⏸️ 未来（用户已预埋，见 A4） |
+
+#### 1.3.1 查看按钮：**一处拦截，五处连带消失**
+
+官方的「查看」按钮由**一个信号**决定是否渲染：
+
+| 位置 | 判据 |
+|---|---|
+| `ToolRow.tsx:357`（通用工具行） | `inspect !== undefined` |
+| `QuestionToolRow.tsx:57`（提问行） | 同上 |
+| `bash-sample.tsx:158`（bash 示例行） | 同上 |
+| `ToolRow.tsx:325` → `ToolDetails` 的 `hasInspect` | 同上 |
+| `ToolRow.module.css:126` 的 `.inspectButton` 占位 | 同上（不渲染则行高消失） |
+
+而 `inspect` 由 `ToolCallTree.tsx:38` 从 props 的 `inspectCall` 派生。因此本插件
+只需在包裹层（`AutoToolCallTree`）决定**是否透传 `inspectCall`**——不改 CSS，
+不克隆 `ToolRow`。判据见 `src/client/inspect-button-scope.ts`。
+
+> **为什么不能只把按钮变透明**：官方 `.inspectButton` 平时就是 `opacity: 0`，
+> 但仍然 `display: inline-flex` + `margin: 4px 0 2px 4px` 占着一行高度。
+> 只藏视觉会留下一条空行——这正是本能力要一并去掉的东西。
+
+**一个真实边界**：「仅当前轮」下，轮次**刚结束**那一刻 `GroupOpenContext.auto`
+变假，按钮会重新出现。这与「操作组自动展开」完全同构（轮次结束后交回官方），
+不是缺陷；要覆盖「刚结束的那轮」需另立判据，本期不做。
+
 #### 1.2.1 收起时机：**四个**（2026-10-23 第二次查证，✅ P8 已实施）
 
 **思考与工具**：同一套四个时机、同一段判据。两者都由操作组提供同样的两个坐标，

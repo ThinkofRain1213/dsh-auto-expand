@@ -8,7 +8,7 @@
  *      group 关闭时自动折叠一次（这是本插件的核心行为）。
  *   2. 新增自动展开时的滚动定位：官方 `toggle` 里有 `initialize(...)`，
  *      但自动展开不经过它，必须在同一帧显式补上（`initialize` + `realign`）。
- *   3. 新增 `GroupOpenContext.Provider`：把 body 展开状态下发给内层思考块。
+ *   3. 新增 `GroupOpenContext.Provider`：把 body 展开状态下发给内层行（P3 思考块 / P7 工具行）。
  *   4. `useProcessScroll` 解构出新增的 `realign`。
  *
  * 保留不动（关键）：
@@ -18,7 +18,7 @@
  *   - `useProcessScroll` → 内部滚动跟随与边缘渐变
  *   - 全部 `data-*` 属性 → 官方 CSS 与测试依赖
  */
-import { memo, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import {
   IconAgentPresetOutlineRegular, IconApiOutlineRegular, IconBrowseOutlineRegular, IconChevronDownOutlineRegular,
   IconChevronUpOutlineRegular, IconCodeOutlineRegular, IconEditOutlineRegular, IconGlobeOutlineRegular,
@@ -30,8 +30,9 @@ import type { ChatStoreState, ProcessActivity } from '@deepseek-ai/dsh-client-ui
 import type { ChatFlowSlotProps } from '../contract/slots.ts'
 import { turnProcessOpen } from '../contract/chat-contract.ts'
 import { useAutoDisclosure } from '../auto-disclosure.ts'
+import { startedAnchorOfNode, stepOfNode } from '../collapse-timing.ts'
 import { useAutoExpandSettings } from '../settings.ts'
-import { GroupOpenContext } from '../group-open-context.ts'
+import { GroupOpenContext, type GroupOpenState } from '../group-open-context.ts'
 import { AutoNodeSeat } from './AutoNodeSeat.tsx'
 import { chatRenderKey, hiddenOrCollapsing, processTitle } from './flow-utils.ts'
 import { useProcessScroll } from './use-process-scroll.ts'
@@ -46,6 +47,14 @@ export type AutoGroupSeatProps = SeatProps & {
   readonly groupKey: GroupKey
   readonly useChatGroup: ChatFlowSlotProps['useChatGroup']
   readonly useGroupHeaderAction: ChatFlowSlotProps['useGroupHeaderAction']
+  /**
+   * 读整个 Chat 快照。
+   *
+   * 本组两个坐标必须**逐成员**判断（「是不是最新一批」「是不是最新一条已开始的」），
+   * 而 `useChatNode` 只能在固定 key 上取一个节点、不能遍历成员列表，所以这里
+   * 直接读快照里的节点存储。
+   */
+  readonly useChat: ChatFlowSlotProps['useChat']
 }
 
 /** 运行中标题变化的最小停留时长（官方同值）。 */
@@ -184,6 +193,48 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
   // 开关关闭时 autoOpen 恒为 false，等价于官方的"始终折叠"。
   const autoOpen = settings.groupAutoExpand && !(closed === true)
   const { open, setOpen, toggle: toggleDisclosure, following: followsAuto } = useAutoDisclosure(autoOpen)
+
+  // 下发给内层行的状态：
+  //  - `open` 供「是否跟随本组的折叠」（P3 思考块用）；
+  //  - `auto` 供「本组是否属于当前轮的自动展开窗口」（P7 工具行用：
+  //    历史组被手动展开时 open 为真而 auto 为假，内层行必须保持折叠）。
+  //
+  // 必须 memo：每次渲染新建对象会让 Provider 的所有消费者无条件重渲染。
+  //
+  // P8 信号层：本组两个坐标，供内层行判断「是否已被取代」。
+  //
+  // - `latestStep`（批次坐标）—— 同一次模型输出派发的成员共享同一 step，
+  //   供「下一批操作出现时」：同批多条一起留，等下批出现才收。
+  // - `latestStartedAnchorSeq`（操作坐标）—— **只统计已开始的成员**，
+  //   供「下一条操作出现时」。
+  //
+  // 为什么操作坐标不能直接取「成员里最大的 anchorSeq」：工具节点在流式阶段
+  // （`preparing`）就被创建，`anchorSeq` 此时已经定死。若把未执行的也算进来，
+  // 同一批的三条工具会在执行前就分出胜负，只有序号最大的那条能展开
+  // ——真机已复现「只有 C 展开」。
+  //
+  // 两个选择器都返回原始值（number | undefined），React 按 `Object.is` 比较，
+  // 不会像返回新对象那样每次渲染都判定为变化。
+  const latestStep = props.useChat((snapshot) => {
+    let latest: number | undefined
+    for (const member of members ?? []) {
+      const step = stepOfNode(snapshot.nodes.get(member.key))
+      if (step !== undefined && (latest === undefined || step > latest)) latest = step
+    }
+    return latest
+  })
+  const latestStartedAnchorSeq = props.useChat((snapshot) => {
+    let latest: number | undefined
+    for (const member of members ?? []) {
+      const started = startedAnchorOfNode(snapshot.nodes.get(member.key))
+      if (started !== undefined && (latest === undefined || started > latest)) latest = started
+    }
+    return latest
+  })
+  const groupOpenState = useMemo<GroupOpenState>(
+    () => ({ open, auto: autoOpen, latestStep, latestStartedAnchorSeq }),
+    [open, autoOpen, latestStep, latestStartedAnchorSeq],
+  )
   const firstKey = members?.[0]?.key ?? ''
   const bottom = props.useChatNodeBottom(firstKey)
   const deferCollapse = bottom === true && props.deferCollapse
@@ -267,8 +318,8 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
         data-scroll-up={edges.canScrollUp || undefined} data-scroll-down={edges.canScrollDown || undefined}
         {...events}>
         <div ref={contentRef} className={css.content} data-step-process-content data-chat-flow="">
-          {/* 改动 3：把 body 展开状态下发给内层思考块（P3 使用） */}
-          <GroupOpenContext.Provider value={open}>
+          {/* 改动 3：把 body 展开状态下发给内层行（P3 思考块 / P7 工具行） */}
+          <GroupOpenContext.Provider value={groupOpenState}>
             <GroupMembers {...props} members={members} />
           </GroupOpenContext.Provider>
         </div>

@@ -49,7 +49,7 @@ export const AutoFlow = memo(function AutoFlow({
           {...entry.groupPart === undefined ? {} : { groupPart: entry.groupPart }} />
       case 'group':
         return <AutoGroupSeat {...seatProps} key={chatRenderKey(entry)} groupKey={entry.key}
-          useChatGroup={useChatGroup} useGroupHeaderAction={useGroupHeaderAction} />
+          useChat={useChat} useChatGroup={useChatGroup} useGroupHeaderAction={useGroupHeaderAction} />
       default: {
         const exhaustive: never = entry
         throw new Error(`未知的 RenderEntry：${JSON.stringify(exhaustive)}`)

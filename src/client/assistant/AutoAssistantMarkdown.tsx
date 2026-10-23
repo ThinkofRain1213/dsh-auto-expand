@@ -6,6 +6,7 @@
  * 修改点（一处）：
  *   - `ReasoningRow` → `AutoReasoningRow`（接自动展开策略）。
  *   - 不再接收 `useDisclosure` prop（思考行自己用 `useAutoDisclosure`）。
+ *   - 额外接收节点的 `step` 与 `anchorSeq`，原样转发给每个思考行。
  *
  * 为什么必须完整重写而不是包裹：官方 `AssistantNodeView` 内部固定引用
  * 官方 `AssistantMarkdown`，无法从外部替换其中一层。而官方
@@ -53,6 +54,10 @@ export function localPathMediaUrl(base: string, value: string): string | undefin
 export interface AutoAssistantMarkdownProps extends
   Pick<PropsRenderSlots<'conversation.chat.reasoning.body' | 'conversation.chat.message.images'>, 'renderSlot'>,
   Pick<ChatNodeOwnerProps, 'loadImage'> {
+  /** 该 `assistant-step` 节点的 `step`（模型输出轮次，批次坐标），转发给每个思考行。 */
+  step: number
+  /** 该 `assistant-step` 节点的 `anchorSeq`（节点序号，操作坐标），转发给每个思考行。 */
+  anchorSeq: number
   /** 只渲染请求的业务部分，保留原始 block 索引。 */
   groupPart?: string | undefined
   blocks: readonly AssistantBlock[]
@@ -75,7 +80,7 @@ export interface AutoAssistantMarkdownProps extends
 
 /** 把非空白 reasoning 块渲染为独立 disclosure，与回复并列。 */
 export const AutoAssistantMarkdown = memo(function AutoAssistantMarkdown({
-  blocks, streaming, interrupted, loadImage, groupPart,
+  step, anchorSeq, blocks, streaming, interrupted, loadImage, groupPart,
   reasoningHidden = false, usePresentation, revealProcess, mentions, renderSlot, useGroupAction, t,
 }: AutoAssistantMarkdownProps) {
   // 按 locale 修订稳定（t 身份在切换时变化）：每次渲染新建对象会让
@@ -123,6 +128,8 @@ export const AutoAssistantMarkdown = memo(function AutoAssistantMarkdown({
           >
             {/* 只有最后一个 block 是 running —— 这自动满足"只保留最后一段思考展开" */}
             <AutoReasoningRow
+              step={step}
+              anchorSeq={anchorSeq}
               text={block.text}
               running={streaming && i === last}
               usePresentation={usePresentation}

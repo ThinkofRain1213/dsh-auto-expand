@@ -6,6 +6,7 @@
  * 修改点（一处）：
  *   - 渲染 `AutoAssistantMarkdown` 而非官方 `AssistantMarkdown`。
  *   - 不再向 Markdown 层传 `useDisclosure`（思考行自己管状态）。
+ *   - 额外下传节点的 `step` 与 `anchorSeq`（思考行收起时机的两个坐标）。
  *
  * 保留不动（关键）：
  *   - `reasoningHidden` 的计算 —— 这是第一层（整轮折叠）的职责。
@@ -58,6 +59,12 @@ export const AutoAssistantNodeView = memo(function AutoAssistantNodeView({
   const revealProcess = useCallback(() => { turnProcess?.setOpen(true) }, [turnProcess])
   return (
     <AutoAssistantMarkdown
+      // P8 信号层：所属 `assistant-step` 节点的**两个坐标**，供思考行判断收起时机。
+      //  - step      （批次坐标）：同批节点要一起展开；
+      //  - anchorSeq （操作坐标）：下一条操作一出现就收起。
+      // 两者都是节点级的：同一节点内的多段思考共享它们。
+      step={data.step}
+      anchorSeq={node.anchorSeq}
       blocks={data.blocks}
       groupPart={groupPart}
       streaming={data.status === 'running'}

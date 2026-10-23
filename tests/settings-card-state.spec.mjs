@@ -159,3 +159,29 @@ test('时机行门控的全组合矩阵', () => {
     }
   }
 })
+
+// ── P9：隐藏查看按钮行 ──────────────────────────────────────────────────
+
+test('新增的隐藏范围行：只随操作组开关门控', () => {
+  // 「仅当前轮」这个判据依赖 GroupOpenContext.auto（该组是否处于当前轮的自动
+  // 展开窗口）。操作组关掉后那个窗口概念就不存在，因此与思考/工具行一样
+  // 受操作组开关门控。
+  const on = deriveSettingsCardState(values(true, true))
+  assert.equal(on.inspectScope.locked, false)
+  assert.equal(on.inspectScope.gate, 'none')
+
+  const off = deriveSettingsCardState(values(false, true))
+  assert.equal(off.inspectScope.locked, true)
+  assert.equal(off.inspectScope.gate, 'workGroup')
+})
+
+test('隐藏范围行不受思考/工具开关影响', () => {
+  // 它只隐藏查看按钮，与思考、工具的自动展开完全无关。
+  for (const reasoningAutoExpand of [true, false]) {
+    for (const toolAutoExpand of [true, false]) {
+      const state = deriveSettingsCardState(values(true, reasoningAutoExpand, toolAutoExpand))
+      assert.equal(state.inspectScope.locked, false,
+        `reasoning=${reasoningAutoExpand} tool=${toolAutoExpand} 不应影响该行`)
+    }
+  }
+})

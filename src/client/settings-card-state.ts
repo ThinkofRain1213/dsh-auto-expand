@@ -46,13 +46,15 @@ export interface SelectRowState {
   readonly gate: 'none' | 'workGroup' | 'own'
 }
 
-/** 整张卡片的五行状态。 */
+/** 整张卡片的六行状态。 */
 export interface SettingsCardState {
   readonly workGroup: SwitchRowState
   readonly reasoning: SwitchRowState
   readonly reasoningTiming: SelectRowState
   readonly tool: SwitchRowState
   readonly toolTiming: SelectRowState
+  /** 隐藏查看按钮（P9）。 */
+  readonly inspectScope: SelectRowState
 }
 
 /**
@@ -99,5 +101,12 @@ export function deriveSettingsCardState(values: SwitchValues): SettingsCardState
       gatedText: innerLocked,
     },
     toolTiming: { locked: toolGate !== 'none', gate: toolGate },
+    // 隐藏查看按钮：只受操作组开关门控。
+    //
+    // 「仅当前轮」这一档依赖 `GroupOpenContext.auto`（该组是否处于当前轮的
+    // 自动展开窗口），操作组不自动展开时那个窗口概念就不存在了，因此与
+    // 思考/工具行同样受操作组开关门控；但它与思考、工具的展开毫无关系，
+    // 所以不被那两个开关影响。
+    inspectScope: { locked: innerLocked, gate: innerLocked ? 'workGroup' : 'none' },
   }
 }

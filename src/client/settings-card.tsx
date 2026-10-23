@@ -43,6 +43,7 @@ import type {} from './contract/slot-declarations.ts'
 import { setAutoExpandSetting, useAutoExpandSettings } from './settings.ts'
 import { deriveSettingsCardState, type SelectRowState } from './settings-card-state.ts'
 import { COLLAPSE_TIMINGS, type CollapseTiming } from './collapse-timing.ts'
+import { INSPECT_BUTTON_HIDE_SCOPES, type InspectButtonHideScope } from './inspect-button-scope.ts'
 import type { SettingsKey } from './locales.ts'
 import css from './settings-card.module.css'
 
@@ -57,6 +58,13 @@ const TIMING_LABEL_KEYS: Record<CollapseTiming, SettingsKey> = {
   'next-call': 'timingNextCall',
   'next-node': 'timingNextNode',
   group: 'timingGroup',
+}
+
+/** 每个隐藏范围的文案键。 */
+const SCOPE_LABEL_KEYS: Record<InspectButtonHideScope, SettingsKey> = {
+  off: 'inspectScopeOff',
+  current: 'inspectScopeCurrent',
+  all: 'inspectScopeAll',
 }
 
 /**
@@ -178,6 +186,10 @@ export function SettingsCard({ t }: SettingsCardProps) {
   const timingOptions = COLLAPSE_TIMINGS.map(id => ({
     id, label: t(TIMING_LABEL_KEYS[id]),
   }))
+  /** 隐藏范围选项；顺序即 `INSPECT_BUTTON_HIDE_SCOPES`（从松到紧）。 */
+  const scopeOptions = INSPECT_BUTTON_HIDE_SCOPES.map(id => ({
+    id, label: t(SCOPE_LABEL_KEYS[id]),
+  }))
   return (
     <div className={css.stack}>
       <SwitchRow
@@ -223,6 +235,20 @@ export function SettingsCard({ t }: SettingsCardProps) {
         onChange={next => { void setAutoExpandSetting('toolCollapseTiming', next) }}
         {...state.toolTiming.locked
           ? { locked: { hint: timingText(state.toolTiming.gate, 'gatedByTool') } }
+          : {}}
+      />
+      {/* P9：查看按钮的隐藏范围。放在最后——它不参与"自动展开"那条主线，
+          而是对官方入口的一次可选收纳。 */}
+      <SelectRow
+        title={t('inspectScopeTitle' as SettingsKey)}
+        description={state.inspectScope.gate === 'none'
+          ? t('inspectScopeDesc' as SettingsKey)
+          : gatedByWorkGroup}
+        value={settings.inspectButtonHideScope}
+        options={scopeOptions}
+        onChange={next => { void setAutoExpandSetting('inspectButtonHideScope', next) }}
+        {...state.inspectScope.locked
+          ? { locked: { hint: gatedByWorkGroup } }
           : {}}
       />
     </div>

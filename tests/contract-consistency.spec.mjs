@@ -187,14 +187,16 @@ test('收起时机的默认值两端一致', () => {
   assert.equal(hostTool, 'next-node', '工具默认应为「下一批操作出现时」')
 })
 
-test('两个下拉共用同一份选项（思考与工具对称）', () => {
-  // 设置卡片里两个 SelectRow 的 options 必须是**同一个** timingOptions。
+test('两个时机下拉共用同一份选项（思考与工具对称）', () => {
+  // 设置卡片里两个**时机** SelectRow 的 options 必须是同一个 timingOptions。
   // 若某一方偷偷用自己的窄列表，用户就会看到两个不一样的下拉。
   const source = read('src/client/settings-card.tsx')
   assert.equal(/reasoningTimingOptions/.test(source), false, '不应再有思考专用选项列表')
   assert.equal(/toolTimingOptions/.test(source), false, '不应再有工具专用选项列表')
+  // 卡片现在有三个下拉：两个时机 + 一个隐藏范围。时机那两个必须共用。
   const usages = [...source.matchAll(/options=\{(\w+)\}/g)].map(match => match[1])
-  assert.deepEqual(usages, ['timingOptions', 'timingOptions'], '两个下拉必须共用 timingOptions')
+  assert.deepEqual(usages, ['timingOptions', 'timingOptions', 'scopeOptions'],
+    '两个时机下拉共用 timingOptions；隐藏范围用自己那一份 scopeOptions')
 })
 
 // ── P9：查看按钮的隐藏范围 ──────────────────────────────────────────────

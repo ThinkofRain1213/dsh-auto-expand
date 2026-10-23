@@ -459,3 +459,134 @@ if (tipChanged && reading.followingTail) {
 2. 若安全 → 同一改动顺带解决①和②的折叠部分。
 3. 再做自建展开动画（group body 与思考块可以共用一套工具）。
 4. ③ 明确不做，写进已知限制。
+
+---
+
+## 8. 2026-10-23 讨论：自建动画的接入点、外层滚动被再次提出
+
+> 本节记录用户当天提出的两个新想法与探查结论。**未实施任何代码。**
+> 对应能力矩阵 `CAPABILITY-MATRIX.md` 的 `D5` 与 `C5`。
+
+### 8.1 新想法 A：完全独立实现展开 / 收起动画
+
+用户提出：不再依赖官方 `flow-motion.ts`，由插件自己实现整套展开 / 收起动画。
+
+**探查结论：可行，但真正的难点不是补间曲线。** 必须先同时复刻三件契约，
+否则是**功能回退**而不只是「动画不好看」：
+
+| 必须保留 | 官方实现 | 丢失后的后果 |
+|---|---|---|
+| `hidden="until-found"` 语义 | `searchable-hidden.ts`（`beforematch` 触发展开） | Ctrl+F 能命中折叠内容，但**不会**展开 |
+| 逐帧滚动补偿 | `InputFoldDriver`（`use-chat-viewport.ts:328`） | 动画期间下方内容连续漂移 |
+| 焦点保护 | 官方 | 展开 / 收起时焦点丢失 |
+
+**接入点（关键约束）**：`groupAction` / `groupHeaderAction` 由 `CHAT_FLOW_INJECT`
+注入（`ui-chat/src/client/apply.ts:52-61`）。
+**插件克隆的 `AutoGroupSeat` 只是接收 `useGroupAction` 作为 prop，无法在内部替换**——
+要换只能改写上游 inject。
+
+这意味着本想法与「工具行自动展开」（`CAPABILITY-MATRIX.md` §5）
+**共用同一套 `hookContext` 注入体系**。若两者都做，应合并成**一个 inject 补丁层**，
+而不是继续堆克隆。但那是未公开 API（与 `wrap.ts` 同级），**必须先真机验证**。
+
+**收益**：解决 §6.2 / §6.4 的「展开无动画」——即官方 `useFlowHidden` 把
+`grow` 写死成 `false` 导致的现象。那是**官方设计，不是 bug**，所以只能自建。
+
+### 8.2 新想法 B：把内层丝滑滚动搬到外层
+
+先澄清：这与**第 5 节「外层滚动已确认不需要接管」不是同一件事**。
+
+| | 第 5 节说的是 | 新想法 B 说的是 |
+|---|---|---|
+| 对象 | 外层视口的**跟随动画**（自己发消息时） | 把 group body **内部**的滚动（`capped` 的 400px）搬到外层页面滚动条 |
+| 现状 | **官方本来就有**（`collapseTiming: next-input` → `InputFoldDriver`），已确认不需要接管 | 官方没有，需要插件制造 |
+
+**结论：建议不做。** 三条独立的障碍：
+
+1. **与上一轮的决定直接冲突。** 内层滚动的唯一来源就是 `capped` 的 400px 上限，
+   而它正是用户上一轮要求**还原为官方**的地方（`grouped && (!deferCompletedTurns || open)`）。
+   新想法 B 等于**再次偏离，且偏离面更大**——影响所有组的布局，不只是当前轮。
+2. **去掉上限后仍然是瞬间跳。** `use-chat-scroll.ts:94-98` 的内容增长路径调用
+   `reading.followTail()` **不带参数**，落到默认 `'instant'`（`use-chat-reading.ts:83`）。
+   这正是 §6.3 已确认不可行的现象，新想法 B 只是让它更显眼。
+3. **三条实现路线都有坑：**
+
+| 方案 | 后果 |
+|---|---|
+| CSS `scroll-behavior: smooth` | 破坏官方每帧写入：每个 frame 都触发一次平滑动画 → 抖动 / 卡顿 |
+| 自建 rAF 补间 | 与官方 `instant` 写入**抢同一帧的 `scrollTop`**，结果不可预测 |
+| 不动 | 保持现状跳变 |
+
+**归入 ❌，并入 §7「内容增长时的滚动平滑（高，不建议）」，写进已知限制。**
+
+### 8.3 对 §7 待办清单的影响
+
+| 项 | 变化 |
+|---|---|
+| 折叠动画脱离「运行中」窗口 | 不变（仍是低难度 + 6.5 的风险未验证，且是后续前提） |
+| group body 展开动画 | 不变；接入点补充见 §8.1 |
+| 思考块展开 / 收起动画 | 不变 |
+| 内容增长时滚动平滑 | 不变（❌）；**新想法 B 并入此条** |
+| 自建整套动画 | **新增**，见 §8.1；与「工具行自动展开」共用注入体系 |
+
+**优先级不变**：先验证 6.5（`data-chat-motion` 的真实影响），再谈自建。
+
+---
+
+## 9. 2026-10-23 复验：内外层滚动策略**不一致**（精确证据）
+
+> 用户观察：「操作组自动滚动是真滚动，外层有新行则是向上跳变」。
+> 复验结论：**完全正确**，而且这不是插件造成的——是**官方自己的不一致**。
+
+### 9.1 两条路径
+
+| | 内层（操作组 body） | 外层（整个对话） |
+|---|---|---|
+| 追加位置 | `src/client/flow/use-process-scroll.ts:70` | `ui-chat/.../use-chat-scroll.ts:97` |
+| 调用 | `follow.toBottom(body, metrics, 'smooth')` | `reading.followTail()`（默认 `'instant'`） |
+| 表现 | **平滑真滚动** | **向上跳变一段** |
+| 上限 | `min(400px, 50vh)`（`capped`） | 视口高度 |
+
+### 9.2 关键事实：官方对自己发消息用 smooth，对模型生成用 instant
+
+同一文件 `use-chat-scroll.ts:83`（**自己发消息**时）：
+
+```ts
+reading.followTail(current.deferCompletedTurns ? 'smooth' : 'instant')
+```
+
+而 `:97`（模型生成内容 / 新行出现）是 `reading.followTail()` —— 落到默认 `'instant'`。
+
+即同一个「内容变多、自动跟随到底」的语义：**内层给了 `smooth`，外层给了 `instant`**。
+
+**插件没有挑过**：内层那行 `toBottom(..., 'smooth')` 是官方原样保留的——
+我们的两处改动只涉及 resize 采样（不再误判跟随意图）与新增 `realign()`。
+
+### 9.3 为什么插件只能改内层
+
+| | 内层 | 外层 |
+|---|---|---|
+| 滚动状态机归谁 | 插件**克隆**的 `use-process-scroll.ts`（123 行） | 官方 `use-chat-viewport.ts`(800) + `use-chat-reading.ts`(282) + `ChatView.tsx`(290) |
+| `followTail` 的调用点 | 就在我们自己的文件里 | 在 `use-chat-scroll.ts`，**只有 `ChatView` 用** |
+| 能否改 | ✅ 能 | ❌ 够不到 |
+
+包裹 `conversation.view`（`ChatView`）只能替换它的**组件**，替换不了它内部 hook 的实参。
+修外层必须克隆上述约 1370 行。
+
+### 9.4 归属判断：若要做，应该是**独立插件**（用户已决定「先不管」）
+
+| | 接管点 | 放哪 |
+|---|---|---|
+| 外层滚动（C5/C6） | `conversation.view`（ChatView 链） | **独立插件**（如 `dsh-smooth-scroll`）——与 auto-expand **零接管点重叠** |
+| 自建动画（D5/D3/D4） | `conversation.chat.flow` 的 children inject（`groupAction` / `groupHeaderAction`） | **留在 auto-expand**——与它已包裹的 flow entry 是**同一个 entry**，硬拆会产生加载顺序依赖 |
+
+**原则：按接管点划分，不按功能相关性划分。**
+
+### 9.5 建议顺序
+
+1. **先向上游提案**（几乎零成本、一行改动）：把 `use-chat-scroll.ts:97` 的
+   `reading.followTail()` 改成 `reading.followTail('smooth')`，
+   理由就是「内层已 smooth、外层 instant 是两层不一致」。
+2. 上游不接，再评估独立插件（约 1370 行克隆换一个滚动手感）。
+3. **不建议并入 `dsh-auto-expand`**：漂移成本必须隔离——这段代码是最容易被上游
+   改动打碎的部分，而 auto-expand 的核心（三层展开）本身很稳。

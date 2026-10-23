@@ -328,3 +328,91 @@ Host 半边 schema 新增两个字段（沿用现有 `.volatile()` 约定）：
 `cordis.patch.yml` 的配置里，一旦发布就不宜改名（用户存档里会留着旧键）。
 
 **第 3 步是真机验证点，不是可跳过的一步。** 按 `FIX-SCROLL.md` 第 13 节的教训：一次性补丁要验证它真的执行了，接管行为必须枚举全部触发来源。
+
+---
+
+## 10. 第二批候选：思考 / 工具行的展开与收起时机（2026-10-23 讨论）
+
+> 用户当天提出 5 个想法，其中 3 个属于「设置扩展」范畴，记在这里。
+> **状态（2026-10-23）：议题 4「工具行自动展开」已实施（P7），设置项为 `toolAutoExpand`；
+> 议题 3 与议题 5 仍未实施。** 总表见 `CAPABILITY-MATRIX.md`（A2 / A3 / B3 / B4）。
+
+### 10.1 议题 3：只自动展开思考、思考完成后收起
+
+**展开部分已经实现。** `AutoReasoningRow` 用
+`useAutoDisclosure(settings.reasoningAutoExpand && running && groupOpen)`
+（`src/client/assistant/AutoReasoningRow.tsx:101`），且 `running` 是**精确信号**：
+
+```ts
+// AssistantMarkdown.tsx:103
+running={streaming && i === last}
+```
+
+不依赖任何推测（对比之下，「group 是否在跑」这类信号都要绕 summary 反推）。
+
+**「收起大段」存在歧义，必须澄清后才能实施：**
+
+| 理解 | 含义 | 现状 |
+|---|---|---|
+| ① 收起**思考块本身** | 思考结束 → 收起那一大段思考文本 | **已满足**，`running` 变假即收起 |
+| ② 收起**整个操作组**（group body） | 思考结束 → 折叠大段 | 会导致接下来工具执行时**大段是折叠的、工具结果不可见**，与本插件初衷自相矛盾 |
+
+**倾向 ①，但需要用户确认。** 若确认是 ①，则议题 3 **无需任何改动**，本条只作为行为记录。
+
+### 10.2 议题 4：工具行自动展开 —— 结论已更新
+
+**`P4-ROLLBACK.md` 的悲观结论已被推翻**，详见该文第 9 节与
+`CAPABILITY-MATRIX.md` §5。要点：
+
+- P4 的做法是**替换** `tool-call` 的渲染器 → 顶掉了官方 `GenericToolCard` fallback → `pwsh` 退化。
+- 现在可行的是**包裹**官方 `ToolCallTree`，只覆盖它从 props 接收的 `useDisclosure`。
+- 官方 toolview 分派与 fallback **原样保留**，**不需要克隆 2644 行**。
+
+**两种目标语义，成本差一个量级：**
+
+| 语义 | 判据 | 可行性 |
+|---|---|---|
+| **整组统一**：当前轮所有工具行一起展开，随 group 收起 | `toolAutoExpand && groupOpen && liveTurn` | ✅ 简单稳定，**hook 不需要知道行的身份** |
+| **只展开最新一条**：旧的在下一次调用时收起 | 需要「本行是第几条」 | ⚠️ `ToolRow` 不暴露身份，**不推荐** |
+
+**必须先真机验证的三项**（P4 §9.5）：fallback 卡片完整性、hook 工厂的引用稳定性、
+`tool.call.toolview` 子 slot 分派不受影响。
+
+### 10.3 议题 5：思考收起时机（**已实施，见 P8**）
+
+| 时机 | 现状 | 说明 |
+|---|---|---|
+| 思考完成后 | ✅ 已实现 | `running` 变假 |
+| 大段完成后 | ✅ **已实现，但名不副实** | group 的 `closed` 在「正文出现」时就置真（`process-groups.ts:147-164`），**远早于**大段真正结束 |
+| 下一次调用时 | ❌ 未实现 | 需要 group 级信号（`summary.counts` 变化等），**未验证** |
+
+**一个必须知道的事实**：group 的 `closed` **一旦置真就永久保持**
+（`ProcessGroup.refresh` 对 closed 组强制清空 summary）。
+所以「思考完成后」与「大段完成后」在现有机制下**高度重合**，可区分度低；
+真正正交的只有第三项。
+
+**2026-10-23 更新：已按 P8 实施为「四选一」**——本条早先设计的三个选项
+（思考完成后 / 大段完成后 / 下一次调用时）已被实际落地的四个时机取代：
+本条完成 / 下一条操作出现 / 下一批操作出现 / 随操作组收起。
+详见 CAPABILITY-MATRIX.md §1.2.1 与 P8-PLAN.md §1。
+
+### 10.4 新增设置项草案（含命名，注意 §9.3 的改名成本）
+
+| 键 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `toolAutoExpand` | boolean | `false` | 工具行自动展开（议题 4） |
+| `reasoningCollapseTiming` | enum | `reasoning-done` | 思考收起时机（议题 5）：`reasoning-done` / `next-call` / `group-closed` |
+
+**门控关系**：按现有约定（`groupAutoExpand` 关闭 → 思考行 `disabled` + `.gated`），
+`toolAutoExpand` 与 `reasoningCollapseTiming` 都应**同样被 `groupAutoExpand` 门控**——
+操作组不自动展开时，其内部行的展开时机没有意义。
+
+**命名提醒**：这两个键会出现在 `cordis.patch.yml`，发布后不宜改名（用户存档会留旧键）。
+
+### 10.5 待决策
+
+| # | 问题 | 选项 |
+|---|---|---|
+| Q1 | 议题 3 的「收起大段」指什么 | ①思考块本身（现状已满足） / ②整个操作组（会遮住工具结果） |
+| Q2 | 议题 4 的目标语义 | A 整组统一（推荐） / B 只展开最新一条（不推荐） |
+| Q3 | 是否与「自建动画」（`MOTION-PLAN.md` §8.1）合并实施 | 两者共用同一套 `hookContext` 注入体系，**合并可少一次偏离** |

@@ -249,3 +249,22 @@ test('engines 与克隆记录的上游版本一致', () => {
   assert.ok(engines.includes(minor),
     `engines.dsh = "${engines}" 没有覆盖克隆时的上游版本 ${chatVersion}`)
 })
+
+// ── 滚动跟随：CSS 契约 ──────────────────────────────────────────────────
+
+test('group body 必须关闭浏览器滚动锚定（否则自动滚动会偶发失效）', () => {
+  // 这一条是"写错不报错、只在真机上偶发失效"的典型：`.body` 若保留
+  // `overflow-anchor: auto`（默认），内容在上方变高时浏览器会主动改
+  // scrollTop，产生原生 scroll 事件 → `ScrollFollow.sample()` 的默认判据
+  // 「scrollTop 变了 = 读者滚了」→ 把 following 关掉。而 following 为 false
+  // 后只有 toBottom 能恢复，它的准入条件正是 "已在跟随"，于是死锁。
+  //
+  // 上游对**外层**滚动容器做了同样的事（`ChatView.module.css:36-39` 的
+  // `overflow-anchor: none`），这里对齐它。详见 `spec/FIX-SCROLL.md`。
+  const css = read('src/client/flow/AutoGroupSeat.module.css')
+  const bodyBlock = /\.body\s*\{([^}]*)\}/.exec(css)
+  assert.ok(bodyBlock !== null, '找不到 .body 规则')
+  assert.match(bodyBlock[1], /overflow-anchor:\s*none/,
+    '.body 必须声明 overflow-anchor: none。删掉它会让自动滚动在大段思考'
+    + '展开时偶发失效，且只在真机上偶发、单测与类型检查都不会报错。')
+})

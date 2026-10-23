@@ -89,6 +89,24 @@
   overflow-y: auto;
   overscroll-behavior-y: auto;
   scrollbar-gutter: stable;
+  /* 关闭浏览器滚动锚定（对齐上游对**外层**滚动容器的处理：
+     `ChatView.module.css:36-39` 给 `.scroll` 设了 `overflow-anchor: none`）。
+
+     `.body` 是 `overflow-y: auto`，默认 `overflow-anchor: auto`：内容在视口
+     上方变高时，浏览器会**主动改 scrollTop** 来保住视觉位置。这不是读者行为，
+     却会触发 `scroll` 事件 → `sync('scroll')` → `ScrollFollow.sample()` 的
+     默认判据「scrollTop 变了 = 读者滚了」→ 把 `following` 关掉。
+
+     `following` 一旦为 false 只有 `toBottom` 能恢复，而它的准入条件正是
+     「已在跟随」——于是死锁，表现为自动滚动永久失效，直到读者手动滚到底。
+
+     本插件的思考块用 `{open && children}` 直接挂载（无高度动画），一次展开
+     就是几百像素的跳变，正是最典型的触发源。从源头关掉锚定后，`scroll` 事件
+     不再带虚假位移，跟随意图不会被子虚乌有地推翻。
+
+     ⚠️ 与上游的唯一差异点：官方没给 `.body` 设这一条（它也没有自动展开，
+     很少出现大高度跳变）。若将来上游补上，这里可以删掉。 */
+  overflow-anchor: none;
 }
 
 .label {

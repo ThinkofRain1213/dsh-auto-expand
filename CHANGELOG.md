@@ -116,11 +116,15 @@
 - **已完成 group 手动展开被强制滚到底部**：滚动定位的 effect 用 `open` 翻转
   作判据，无法区分自动展开与手动展开。改用纯业务状态判定。
   详见 `spec/FIX-SCROLL.md` 第 1~7 节。
-- **body 自动滚动偶发失效（大段思考触发）**：两层根因 ——
-  ① `.body` 的滚动锚定会让内容变高时自动移动 `scrollTop`，被 `ScrollFollow`
-  误判为「读者上滚」并永久关掉跟随；
-  ② 上一次修复的定位补丁因 `useRef(autoOpen)` 初值问题**从未执行过**。
-  修法见 `spec/FIX-SCROLL.md` 第 8~13 节。
+- **body 自动滚动偶发失效（大段思考触发）**：**三次修复才根治**。
+  ① 第一次（P2）的定位补丁因 `useRef(autoOpen)` 初值问题**从未执行过**；
+  ② 第二次堵住了 `resize` 分支的误判 —— `.body` 的滚动锚定会让内容变高时自动
+  移动 `scrollTop`，被 `ScrollFollow` 误判为「读者上滚」并永久关掉跟随；
+  ③ 但锚定位移**同样会产生原生 `scroll` 事件**，那条入口仍是默认判据，
+  因此偶发失效依旧存在。第三次改为给 `.body` 加 `overflow-anchor: none`
+  （对齐上游 `ChatView.module.css:36-39` 对**外层**容器的处理），从源头消除
+  锚定位移，两条入口一次解决。
+  详见 `spec/FIX-SCROLL.md` 第 8~18 节。
 - **设置写入的三个分支漏洞**：没有写入通道时先改本地状态（开关看起来切换了、
   Host 从未收到写入）；RPC 抛错时既没回滚也没 catch。见 `spec/P6-REPORT.md` 第 5 节。
 - **空的 assistant-step 多 6px 间距**：官方 `ChatView.module.css` 的兄弟间距规则

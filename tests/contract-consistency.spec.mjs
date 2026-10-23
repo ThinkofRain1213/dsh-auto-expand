@@ -87,11 +87,22 @@ test('locale 座位与 LocaleNamespaceMap 的声明一致', () => {
 })
 
 test('Host schema 字段名 === Client 字段名', () => {
-  const hostFields = [...hostSource.matchAll(/GROUP_AUTO_EXPAND_FIELD\s*=\s*'([^']+)'|REASONING_AUTO_EXPAND_FIELD\s*=\s*'([^']+)'/g)]
-    .map(match => match[1] ?? match[2])
-  const clientFields = [...clientSettings.matchAll(/GROUP_AUTO_EXPAND_FIELD\s*=\s*'([^']+)'|REASONING_AUTO_EXPAND_FIELD\s*=\s*'([^']+)'/g)]
-    .map(match => match[1] ?? match[2])
-  assert.equal(hostFields.length, 2, `Host 侧应声明 2 个字段，实际 ${hostFields.length}`)
+  // 新增字段时**必须**把字段名加进这个正则，否则它不受本契约保护
+  // ——P7 的 tool 字段最初就漏在这里（当时只有 GROUP/REASONING 两支），
+  // 字段名写错也不会报错，只在运行时被静默忽略。
+  // P8 又加了两个 COLLAPSE_TIMING 字段，同样必须进这个清单。
+  // 正则字面量不能跨行，所以用 `new RegExp` 拼装（可读性优于超长单行）。
+  const fieldPattern = () => new RegExp(
+    '(GROUP|REASONING|TOOL)_AUTO_EXPAND_FIELD\\s*=\\s*\'([^\']+)\''
+    + '|(REASONING|TOOL)_COLLAPSE_TIMING_FIELD\\s*=\\s*\'([^\']+)\'',
+    'g',
+  )
+  /** 取值：正则的第 2 组或第 4 组（取决于命中的是哪个分支）。 */
+  const valueOf = (match) => match[2] ?? match[4]
+  const hostFields = [...hostSource.matchAll(fieldPattern())].map(valueOf)
+  const clientFields = [...clientSettings.matchAll(fieldPattern())].map(valueOf)
+  assert.equal(hostFields.length, 5, `Host 侧应声明 5 个字段，实际 ${hostFields.length}`)
+  assert.equal(clientFields.length, 5, `Client 侧应声明 5 个字段，实际 ${clientFields.length}`)
   assert.deepEqual(clientFields, hostFields,
     '两边的字段名必须逐字一致：client 按字段名写 Host 设置文档，写错时写入会被静默忽略')
 })
@@ -99,10 +110,111 @@ test('Host schema 字段名 === Client 字段名', () => {
 test('两端都默认开启（默认值必须一致）', () => {
   const hostGroup = capture(hostSource, /DEFAULT_GROUP_AUTO_EXPAND\s*=\s*(true|false)/, 'Host group 默认值')
   const hostReasoning = capture(hostSource, /DEFAULT_REASONING_AUTO_EXPAND\s*=\s*(true|false)/, 'Host 思考默认值')
+  const hostTool = capture(hostSource, /DEFAULT_TOOL_AUTO_EXPAND\s*=\s*(true|false)/, 'Host 工具默认值')
   const clientGroup = capture(clientSettings, /groupAutoExpand:\s*(true|false)/, 'Client group 默认值')
   const clientReasoning = capture(clientSettings, /reasoningAutoExpand:\s*(true|false)/, 'Client 思考默认值')
+  const clientTool = capture(clientSettings, /toolAutoExpand:\s*(true|false)/, 'Client 工具默认值')
   assert.equal(clientGroup, hostGroup, 'group 开关的默认值不一致')
   assert.equal(clientReasoning, hostReasoning, '思考开关的默认值不一致')
+  assert.equal(clientTool, hostTool, '工具开关的默认值不一致')
+})
+
+// ── P8：收起时机枚举 ────────────────────────────────────────────────────
+
+test('收起时机的取值列表两端一致', () => {
+  // Host 写 `COLLAPSE_TIMINGS = [...] as const`；Client 写
+  // `COLLAPSE_TIMINGS: readonly CollapseTiming[] = [...]`——中间有类型注解，
+  // 所以不能用 `\s*=`，要允许标注段（其中含 `[]`，故排除的是 `=` 与换行）。
+  /**
+   * 从源码里取出某个时机的数组字面量成员。
+   *
+   * 用 `\b` 加左边界：否则 `COLLAPSE_TIMINGS` 会先命中带同名后缀的常量。
+   * @param {string} source - 源码文本。
+   * @param {string} name - 常量名（如 `COLLAPSE_TIMINGS`）。
+   * @returns {string[]} 成员列表。
+   */
+  const membersOf = (source, name) => {
+    const block = new RegExp(`\\b${name}[^=\\n]*=\\s*\\[([^\\]]*)\\]`).exec(source)
+    assert.ok(block !== null, `找不到 ${name} 的定义`)
+    return [...block[1].matchAll(/'([^']+)'/g)].map(match => match[1])
+  }
+  const clientSource = read('src/client/collapse-timing.ts')
+  // 思考与工具**共用同一份列表**，两端各只有这一个常量（2026-10-23 统一）。
+  assert.deepEqual(membersOf(clientSource, 'COLLAPSE_TIMINGS'), membersOf(hostSource, 'COLLAPSE_TIMINGS'),
+    'COLLAPSE_TIMINGS 两端必须逐字一致，否则 Host 会拒写 Client 发来的枚举值')
+  assert.deepEqual(membersOf(hostSource, 'COLLAPSE_TIMINGS'),
+    ['self', 'next-call', 'next-node', 'group'], '顺序 = 收起由早到晚')
+})
+
+test('不再存在思考/工具专用时机列表（统一为一份）', () => {
+  // 此前 `REASONING_COLLAPSE_TIMINGS`（3 个）与 `TOOL_COLLAPSE_TIMINGS`（4 个）
+  // 分叉，理由是「一个 step 只有一段思考」。该理由不成立为裁剪依据：思考同样
+  // 有 anchorSeq，next-call 在它身上真实成立。这里守住「不要再分叉」。
+  for (const name of ['REASONING_COLLAPSE_TIMINGS', 'TOOL_COLLAPSE_TIMINGS']) {
+    assert.equal(new RegExp(`\\b${name}\\b`).test(hostSource), false, `Host 侧不应再有 ${name}`)
+    assert.equal(new RegExp(`\\b${name}\\b`).test(read('src/client/collapse-timing.ts')), false,
+      `Client 侧不应再有 ${name}`)
+    assert.equal(new RegExp(`\\b${name}\\b`).test(read('src/client/settings-card.tsx')), false,
+      `设置卡片不应再有 ${name}`)
+  }
+})
+
+test('两个时机字段的取值集合相同（思考与工具对称）', () => {
+  // schema 里两个字段都必须是 `z.union([...COLLAPSE_TIMINGS])`：
+  // 若某一方偷偷写回自己的窄集合，这里会抓到。
+  const unions = [...hostSource.matchAll(/(REASONING|TOOL)_COLLAPSE_TIMING_FIELD\]:\s*z\.union\(\[\.\.\.(\w+)\]\)/g)]
+  assert.equal(unions.length, 2, `应有 2 个时机字段，实际 ${unions.length}`)
+  for (const match of unions) {
+    assert.equal(match[2], 'COLLAPSE_TIMINGS', `${match[1]} 字段必须用 COLLAPSE_TIMINGS`)
+  }
+})
+
+test('收起时机的默认值两端一致', () => {
+  const hostReasoning = capture(hostSource,
+    /DEFAULT_REASONING_COLLAPSE_TIMING:\s*\w+\s*=\s*'([^']+)'/, 'Host 思考时机默认值')
+  const hostTool = capture(hostSource,
+    /DEFAULT_TOOL_COLLAPSE_TIMING:\s*\w+\s*=\s*'([^']+)'/, 'Host 工具时机默认值')
+  const clientReasoning = capture(clientSettings,
+    /reasoningCollapseTiming:\s*'([^']+)'/, 'Client 思考时机默认值')
+  const clientTool = capture(clientSettings, /toolCollapseTiming:\s*'([^']+)'/, 'Client 工具时机默认值')
+  assert.equal(clientReasoning, hostReasoning, '思考时机默认值不一致')
+  assert.equal(clientTool, hostTool, '工具时机默认值不一致')
+  // 默认值由用户指定为「下一批操作出现时」（2026-10-23）。
+  // 注意：这**不等于**更早的旧行为，改默认值会改变已安装用户的行为，
+  // 所以这条断言同时是"默认值被改动"的警报。
+  assert.equal(hostReasoning, 'next-node', '思考默认应为「下一批操作出现时」')
+  assert.equal(hostTool, 'next-node', '工具默认应为「下一批操作出现时」')
+})
+
+test('两个下拉共用同一份选项（思考与工具对称）', () => {
+  // 设置卡片里两个 SelectRow 的 options 必须是**同一个** timingOptions。
+  // 若某一方偷偷用自己的窄列表，用户就会看到两个不一样的下拉。
+  const source = read('src/client/settings-card.tsx')
+  assert.equal(/reasoningTimingOptions/.test(source), false, '不应再有思考专用选项列表')
+  assert.equal(/toolTimingOptions/.test(source), false, '不应再有工具专用选项列表')
+  const usages = [...source.matchAll(/options=\{(\w+)\}/g)].map(match => match[1])
+  assert.deepEqual(usages, ['timingOptions', 'timingOptions'], '两个下拉必须共用 timingOptions')
+})
+
+test('四个时机的文案键在思考与工具两侧都齐备', () => {
+  // 文案是唯一一处"写错不报错、只是显示空白下拉项"的地方。
+  const zhSource = read('src/client/locales.ts')
+  for (const key of ['timingSelf', 'timingNextCall', 'timingNextNode', 'timingGroup']) {
+    const zhHits = [...zhSource.matchAll(new RegExp(`\\b${key}:`, 'g'))]
+    // 中文与英文各一处。
+    assert.equal(zhHits.length, 2, `${key} 应在 zh 与 en 中各出现一次，实际 ${zhHits.length}`)
+  }
+  // TIMING_LABEL_KEYS 必须覆盖全部四个取值。
+  // 注意键可能是裸标识符（`self:`）或带引号（`'next-call':`），两种都要认。
+  const cardSource = read('src/client/settings-card.tsx')
+  for (const [timing, key] of [
+    ['self', 'timingSelf'], ['next-call', 'timingNextCall'],
+    ['next-node', 'timingNextNode'], ['group', 'timingGroup'],
+  ]) {
+    const quoted = timing.includes('-') ? `'${timing}'` : timing
+    assert.match(cardSource, new RegExp(`${quoted}:\\s*'${key}'`),
+      `TIMING_LABEL_KEYS 缺少 ${timing} → ${key}`)
+  }
 })
 
 test('客户端 bundle 的 inject 声明覆盖实际依赖的服务包', () => {

@@ -1,7 +1,7 @@
 {
   "name": "dsh-auto-expand",
   "version": "0.1.0",
-  "description": "DSH plugin: keep the running turn's work process visible — process-group bodies and reasoning blocks expand automatically and fold once that work is done, leaving history untouched.",
+  "description": "DSH plugin: keep the running turn's work visible — process groups, reasoning and tool results expand automatically and fold once the group ends, leaving history untouched.",
   "license": "MIT",
   "type": "module",
   "private": true,
@@ -52,7 +52,7 @@
     "build": "tsdown",
     "watch": "tsdown --watch",
     "typecheck": "tsc -p tsconfig.json --pretty false",
-    "test": "node --experimental-transform-types --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs tests/scroll-init.spec.mjs tests/scroll-align.spec.mjs tests/process-scroll.spec.mjs tests/settings-write.spec.mjs tests/drift-manifest.spec.mjs tests/contract-consistency.spec.mjs tests/settings-card-state.spec.mjs",
+    "test": "node --experimental-transform-types --test tests/auto-disclosure.spec.mjs tests/wrap.spec.mjs tests/reasoning-auto-open.spec.mjs tests/scroll-init.spec.mjs tests/scroll-align.spec.mjs tests/process-scroll.spec.mjs tests/settings-write.spec.mjs tests/drift-manifest.spec.mjs tests/contract-consistency.spec.mjs tests/settings-card-state.spec.mjs tests/tool-disclosure.spec.mjs tests/collapse-timing.spec.mjs",
     "smoke": "node scripts/smoke-client.mjs",
     "verify": "pnpm typecheck && pnpm build && pnpm test && pnpm smoke",
     "verify:full": "pnpm verify && pnpm drift",

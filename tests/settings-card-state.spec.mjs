@@ -12,9 +12,15 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { deriveSettingsCardState } from '../src/client/settings-card-state.ts'
 
-/** 构造一组开关值。 */
-function values(groupAutoExpand, reasoningAutoExpand) {
-  return { groupAutoExpand, reasoningAutoExpand }
+/**
+ * 构造一组开关值。
+ * @param {boolean} groupAutoExpand - 大段开关。
+ * @param {boolean} reasoningAutoExpand - 思考行开关。
+ * @param {boolean} toolAutoExpand - 工具行开关；默认与思考行同开。
+ * @returns {object} 三个开关的值。
+ */
+function values(groupAutoExpand, reasoningAutoExpand, toolAutoExpand = true) {
+  return { groupAutoExpand, reasoningAutoExpand, toolAutoExpand }
 }
 
 test('两个都开：两行都可操作，描述是常规文案', () => {
@@ -69,5 +75,87 @@ test('四种组合的完整矩阵', () => {
     assert.equal(state.workGroup.checked, group)
     // 无论哪种组合，思考值都原样透出（即使被锁）。
     assert.equal(state.reasoning.checked, reasoning)
+  }
+})
+
+// ── 工具行（P7）：与思考行共享「大段关闭即被锁」这条规则 ──────────────────
+
+test('三个都开：工具行也可操作，描述是常规文案', () => {
+  const state = deriveSettingsCardState(values(true, true, true))
+  assert.deepEqual(state.tool, { checked: true, locked: false, gatedText: false })
+})
+
+test('大段关：工具行被锁且换文案，但保留 checked 原值', () => {
+  const state = deriveSettingsCardState(values(false, true, true))
+  assert.equal(state.tool.locked, true)
+  assert.equal(state.tool.gatedText, true, '锁住时必须换成"由谁控制"的说明')
+  assert.equal(state.tool.checked, true,
+    '强制成 false 会让用户重新打开大段后发现选择被丢了')
+})
+
+test('大段开、工具关：工具行仍可操作（"关着"与"被锁"是两件事）', () => {
+  const state = deriveSettingsCardState(values(true, true, false))
+  assert.equal(state.tool.checked, false)
+  assert.equal(state.tool.locked, false)
+  assert.equal(state.tool.gatedText, false)
+})
+
+test('思考行与工具行的锁状态始终一致（两者都渲染在 group body 内部）', () => {
+  for (const group of [true, false]) {
+    for (const reasoning of [true, false]) {
+      for (const tool of [true, false]) {
+        const state = deriveSettingsCardState(values(group, reasoning, tool))
+        assert.equal(state.tool.locked, state.reasoning.locked,
+          `group=${group} 时两行锁状态不一致`)
+        assert.equal(state.tool.gatedText, state.reasoning.gatedText)
+        // 两行各自的值都原样透出（即使被锁）。
+        assert.equal(state.reasoning.checked, reasoning)
+        assert.equal(state.tool.checked, tool)
+      }
+    }
+  }
+})
+
+// ── 时机行（P8）：比开关行多一层门控 ────────────────────────────────────
+
+test('时机行：三行都开时未锁', () => {
+  const state = deriveSettingsCardState(values(true, true, true))
+  assert.equal(state.reasoningTiming.gate, 'none')
+  assert.equal(state.reasoningTiming.locked, false)
+  assert.equal(state.toolTiming.gate, 'none')
+  assert.equal(state.toolTiming.locked, false)
+})
+
+test('时机行：操作组关闭时被操作组锁', () => {
+  const state = deriveSettingsCardState(values(false, true, true))
+  assert.equal(state.reasoningTiming.gate, 'workGroup')
+  assert.equal(state.reasoningTiming.locked, true)
+  assert.equal(state.toolTiming.gate, 'workGroup')
+  assert.equal(state.toolTiming.locked, true)
+})
+
+test('时机行：本层开关关闭时被自己锁，且不影响另一层', () => {
+  const state = deriveSettingsCardState(values(true, false, true))
+  assert.equal(state.reasoningTiming.gate, 'own', '没有自动展开就没有收起时机')
+  assert.equal(state.reasoningTiming.locked, true)
+  assert.equal(state.toolTiming.gate, 'none', '工具层不受思考开关影响')
+})
+
+test('时机行：操作组与本层同时关闭时，优先报告操作组', () => {
+  // 描述里应该点名最近的那一层控制者；操作组在更上层，先讲它。
+  const state = deriveSettingsCardState(values(false, false, false))
+  assert.equal(state.reasoningTiming.gate, 'workGroup')
+  assert.equal(state.toolTiming.gate, 'workGroup')
+})
+
+test('时机行门控的全组合矩阵', () => {
+  for (const group of [true, false]) {
+    for (const own of [true, false]) {
+      const state = deriveSettingsCardState(values(group, own, true))
+      const expectedGate = !group ? 'workGroup' : own ? 'none' : 'own'
+      assert.equal(state.reasoningTiming.gate, expectedGate,
+        `group=${group} own=${own} 时思考时机行的锁定原因错误`)
+      assert.equal(state.reasoningTiming.locked, expectedGate !== 'none')
+    }
   }
 })

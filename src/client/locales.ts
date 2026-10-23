@@ -58,11 +58,18 @@ export const zh = {
   timingNextNode: '下一批操作出现时',
   timingGroup: '随操作组收起',
   // P9：查看按钮的隐藏范围。三档从松到紧，「不隐藏」是默认值 = 行为不变。
+  //
+  // 「运行中隐藏」的判据是「这一行按**收起时机**是否还展开着」，不是「操作组
+  // 是否 closed」。它依赖自动展开：工具行开关或操作组开关关掉时没有「运行中」
+  // 可言，该档等同于「不隐藏」——那两条专门的说明文案见下。
   inspectScopeTitle: '隐藏查看按钮',
-  inspectScopeDesc: '工具行上的「查看」按钮会跳转到轨迹记录；可只去掉当前轮的入口，或全部去掉。',
+  inspectScopeDesc: '只影响工具行，思考行没有这个按钮。',
+  inspectScopeDescCurrent: '只影响工具行。工具行收起后不再控制，交回官方默认行为。',
+  inspectScopeDescCurrentWorkGroupOff: '「运行中」依赖操作组自动展开，当前已关闭；选此档等同于「不隐藏」。',
+  inspectScopeDescCurrentToolOff: '「运行中」依赖工具行自动展开，当前已关闭；选此档等同于「不隐藏」。',
   inspectScopeOff: '不隐藏',
-  inspectScopeCurrent: '仅当前轮',
-  inspectScopeAll: '全部轮次',
+  inspectScopeCurrent: '仅运行中隐藏',
+  inspectScopeAll: '全部隐藏',
   gatedByWorkGroup: '由「自动展开操作组」控制，现已关闭',
   gatedByReasoning: '由「自动展开思考过程」控制，现已关闭',
   gatedByTool: '由「自动展开工具结果」控制，现已关闭',
@@ -85,10 +92,13 @@ export const en = {
   timingNextNode: 'When the next batch appears',
   timingGroup: 'With the process group',
   inspectScopeTitle: 'Hide the Inspect button',
-  inspectScopeDesc: 'The Inspect button on tool rows opens the trajectory record. Hide it only in the running turn, or in every turn.',
+  inspectScopeDesc: 'Only affects tool rows — reasoning rows have no such button.',
+  inspectScopeDescCurrent: 'Only affects tool rows. Once a row folds, the plugin stops controlling it and official behavior returns.',
+  inspectScopeDescCurrentWorkGroupOff: '"While running" needs auto-expanded process groups, which are off. This option currently behaves like "Do not hide".',
+  inspectScopeDescCurrentToolOff: '"While running" needs auto-expanded tool rows, which are off. This option currently behaves like "Do not hide".',
   inspectScopeOff: 'Do not hide',
-  inspectScopeCurrent: 'Running turn only',
-  inspectScopeAll: 'Every turn',
+  inspectScopeCurrent: 'While running',
+  inspectScopeAll: 'Always',
   gatedByWorkGroup: 'Controlled by "Auto-expand process groups"; currently off',
   gatedByReasoning: 'Controlled by "Auto-expand reasoning"; currently off',
   gatedByTool: 'Controlled by "Auto-expand tool results"; currently off',

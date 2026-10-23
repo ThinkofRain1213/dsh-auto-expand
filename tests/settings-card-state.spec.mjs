@@ -162,26 +162,33 @@ test('时机行门控的全组合矩阵', () => {
 
 // ── P9：隐藏查看按钮行 ──────────────────────────────────────────────────
 
-test('新增的隐藏范围行：只随操作组开关门控', () => {
-  // 「仅当前轮」这个判据依赖 GroupOpenContext.auto（该组是否处于当前轮的自动
-  // 展开窗口）。操作组关掉后那个窗口概念就不存在，因此与思考/工具行一样
-  // 受操作组开关门控。
-  const on = deriveSettingsCardState(values(true, true))
-  assert.equal(on.inspectScope.locked, false)
-  assert.equal(on.inspectScope.gate, 'none')
-
-  const off = deriveSettingsCardState(values(false, true))
-  assert.equal(off.inspectScope.locked, true)
-  assert.equal(off.inspectScope.gate, 'workGroup')
-})
-
-test('隐藏范围行不受思考/工具开关影响', () => {
-  // 它只隐藏查看按钮，与思考、工具的自动展开完全无关。
-  for (const reasoningAutoExpand of [true, false]) {
-    for (const toolAutoExpand of [true, false]) {
-      const state = deriveSettingsCardState(values(true, reasoningAutoExpand, toolAutoExpand))
-      assert.equal(state.inspectScope.locked, false,
-        `reasoning=${reasoningAutoExpand} tool=${toolAutoExpand} 不应影响该行`)
+test('隐藏范围：永不锁死（独立设置）', () => {
+  // 用户明确要求这一行完全独立，不被操作组/思考/工具任何开关锁死。
+  for (const group of [true, false]) {
+    for (const reasoning of [true, false]) {
+      for (const tool of [true, false]) {
+        const state = deriveSettingsCardState(values(group, reasoning, tool))
+        assert.equal(state.inspectScope.locked, false,
+          `group=${group} reasoning=${reasoning} tool=${tool} 时该行不应被锁`)
+        assert.equal(state.inspectScope.gate, 'none')
+      }
     }
   }
+})
+
+test('隐藏范围：「运行中」档会因自动展开关闭而失效（idle）', () => {
+  // 不锁死 ≠ 有效：选「运行中隐藏」时，若自动展开本身关了，
+  // 就没有「运行中」可言，该档实际等同于「不隐藏」。说明文案要点名原因。
+  assert.equal(deriveSettingsCardState(values(true, true, true)).inspectScopeIdle, 'none')
+  assert.equal(deriveSettingsCardState(values(false, true, true)).inspectScopeIdle, 'workGroup',
+    '操作组不自动展开 → 没有运行中')
+  assert.equal(deriveSettingsCardState(values(true, true, false)).inspectScopeIdle, 'own',
+    '工具行不自动展开 → 没有运行中')
+  assert.equal(deriveSettingsCardState(values(false, true, false)).inspectScopeIdle, 'workGroup',
+    '两者都关时优先报操作组（更上层）')
+})
+
+test('隐藏范围：思考开关不影响 idle', () => {
+  assert.equal(deriveSettingsCardState(values(true, false, true)).inspectScopeIdle, 'none',
+    '思考开关与工具的运行状态无关')
 })

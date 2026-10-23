@@ -27,11 +27,21 @@
  * | 取值 | 语义 |
  * |---|---|
  * | `'off'` | 不隐藏（**默认**）。原样透传，逐字等价于未安装本插件 |
- * | `'current'` | 仅当前轮隐藏。历史操作组（`auto === false`）保持官方行为 |
- * | `'all'` | 全部轮次隐藏 |
+ * | `'current'` | **运行中隐藏**：这一行还展开着就藏；收起后交回官方 |
+ * | `'all'` | 全部隐藏 |
  *
- * 「当前轮」的判据复用 `GroupOpenContext.auto`（该操作组处于当前轮的自动展开
- * 窗口），与操作组开关、思考/工具开关同源，不引入新概念。
+ * ## 「运行中」的判据 = 这一行按收起时机是否还展开着
+ *
+ * 不是「操作组是否 closed」，而是 `toolRowAutoOpen()` 的结果——与
+ * `use-tool-disclosure.ts` 决定「这一行是否展开」用的是**同一个**函数。
+ *
+ * 这样按钮的消失与工具行的收起**永远同步**：收起时机选 `next-call` 就跟着
+ * `next-call` 走，选 `group` 就一直藏到操作组结束。不会出现「行已经收起了、
+ * 按钮却还藏着」这种不一致。
+ *
+ * ⚠️ 早先的实现用的是 `GroupOpenContext.auto`（操作组是否 closed），那是**组级**
+ * 信号，与工具行的收起时机无关，因此「一轮内出现中间回复」时按钮会提前交回
+ * 官方——已修正（见 `spec/P9-PLAN.md` 的 I-1）。
  *
  * ## 未知取值为什么回落到 `off`
  *
@@ -61,8 +71,14 @@ export const DEFAULT_INSPECT_BUTTON_HIDE_SCOPE: InspectButtonHideScope = 'off'
 export interface InspectButtonScopeInput {
   /** 用户选定的隐藏范围。未知取值按 `'off'` 处理。 */
   readonly scope: InspectButtonHideScope | undefined
-  /** 该工具行所属操作组是否处于**当前轮**的自动展开窗口。 */
-  readonly auto: boolean
+  /**
+   * 这一行**此刻按收起时机是否应处于自动展开状态**。
+   *
+   * 它由 `toolRowAutoOpen()` 算出，与「这一行是否展开」用的是**同一个**判据
+   * （三合取 + 四档收起时机），而不是「操作组是否 closed」。
+   * 这样按钮的消失时机永远与工具行的收起时机同步。
+   */
+  readonly autoOpen: boolean
   /** 上游原本提供的回调；官方设置关闭时为 `undefined`。 */
   readonly inspectCall: ((callId: string) => void) | undefined
 }
@@ -75,12 +91,20 @@ export interface InspectButtonScopeInput {
  *
  * 返回原回调时，行为与未安装本插件完全一致。
  *
+ * ## 三档
+ *
+ * | 取值 | 运行中（`autoOpen` 真） | 已收起（`autoOpen` 假） |
+ * |---|---|---|
+ * | `'off'` | 原回调 | 原回调 |
+ * | `'current'` | **`undefined`** | 原回调（交回官方） |
+ * | `'all'` | `undefined` | `undefined` |
+ *
  * ## 绝不能返回空函数
  *
  * 官方判的是 `inspect !== undefined`，不是「按钮能不能用」。返回一个空函数
  * 会造出一个**渲染出来、点了没反应**的按钮——比不隐藏更糟。
  *
- * @param input - 档位、当前轮状态与上游回调。
+ * @param input - 档位、这一行是否运行中、上游回调。
  * @returns 应透传的回调；`undefined` 表示不渲染按钮。
  */
 export function inspectCallFor(input: InspectButtonScopeInput): ((callId: string) => void) | undefined {
@@ -88,10 +112,10 @@ export function inspectCallFor(input: InspectButtonScopeInput): ((callId: string
   // 这一条同时挡住了「凭空造回调」——见上面「绝不能返回空函数」。
   if (input.inspectCall === undefined) return undefined
   switch (input.scope) {
-    // 仅当前轮：历史组的 auto 为假，交回官方。
+    // 仅运行中隐藏：收起后交回官方。
     case 'current':
-      return input.auto ? undefined : input.inspectCall
-    // 全部轮次。
+      return input.autoOpen ? undefined : input.inspectCall
+    // 全部隐藏。
     case 'all':
       return undefined
     // 'off' 以及任何未知取值：原样透传。

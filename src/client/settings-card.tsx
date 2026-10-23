@@ -238,19 +238,40 @@ export function SettingsCard({ t }: SettingsCardProps) {
           : {}}
       />
       {/* P9：查看按钮的隐藏范围。放在最后——它不参与"自动展开"那条主线，
-          而是对官方入口的一次可选收纳。 */}
+          而是对官方入口的一次可选收纳。**永不锁死**（独立设置）。
+
+          说明随「当前档位 × 是否失效」变化：
+          - 档位是 off/all → 基础说明（只提"只影响工具行"）；
+          - 档位是 current → 说明收起后交回官方；若此时自动展开本身关着，
+            改说"等同于不隐藏"并点名是哪个开关 —— 不锁行，只解释。 */}
       <SelectRow
         title={t('inspectScopeTitle' as SettingsKey)}
-        description={state.inspectScope.gate === 'none'
-          ? t('inspectScopeDesc' as SettingsKey)
-          : gatedByWorkGroup}
+        description={scopeDescription(settings.inspectButtonHideScope, state.inspectScopeIdle, t)}
         value={settings.inspectButtonHideScope}
         options={scopeOptions}
         onChange={next => { void setAutoExpandSetting('inspectButtonHideScope', next) }}
-        {...state.inspectScope.locked
-          ? { locked: { hint: gatedByWorkGroup } }
-          : {}}
       />
     </div>
   )
+}
+
+/**
+ * 选一条说明文案。
+ *
+ * 只有「运行中隐藏」才需要额外解释：它依赖自动展开，开关一关就没有「运行中」
+ * 可言，此时该档等同于「不隐藏」。其余两档与开关无关，用基础说明即可。
+ * @param scope - 当前档位。
+ * @param idle - 「运行中」档失效的原因。
+ * @param t - 本地化函数。
+ * @returns 说明文案。
+ */
+function scopeDescription(
+  scope: InspectButtonHideScope,
+  idle: 'none' | 'workGroup' | 'own',
+  t: (key: SettingsKey) => string,
+): string {
+  if (scope !== 'current') return t('inspectScopeDesc')
+  if (idle === 'workGroup') return t('inspectScopeDescCurrentWorkGroupOff')
+  if (idle === 'own') return t('inspectScopeDescCurrentToolOff')
+  return t('inspectScopeDescCurrent')
 }

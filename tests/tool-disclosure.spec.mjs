@@ -10,7 +10,7 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { toolAutoOpen } from '../src/client/tool/tool-auto-open.ts'
+import { toolAutoOpen, toolRowAutoOpen } from '../src/client/tool/tool-auto-open.ts'
 
 /**
  * 构造一次判据输入。
@@ -79,4 +79,72 @@ test('只有一个组合会展开：三条件全真', () => {
     }
   }
   assert.deepEqual(opens, [[true, true, true]])
+})
+
+// ── toolRowAutoOpen：把三合取与收起时机合成的完整判据 ──────────────────
+
+/**
+ * 构造 toolRowAutoOpen 的输入。
+ *
+ * 默认值取「当前轮、只有一行、已开始、未完成、最新」——即最普通的运行中工具行。
+ * @param {object} over - 要覆盖的字段。
+ * @returns {object} 判据输入。
+ */
+function rowInput(over = {}) {
+  return {
+    timing: 'group',
+    done: false,
+    started: true,
+    step: 5,
+    anchorSeq: 10,
+    latestStep: 5,
+    latestStartedAnchorSeq: 10,
+    toolAutoExpand: true,
+    groupOpen: true,
+    groupAuto: true,
+    ...over,
+  }
+}
+
+test('toolRowAutoOpen：enabled 三合取仍然生效', () => {
+  // 任一条件为假 → 不自动展开，与 toolAutoOpen 单独测的三合取保持一致。
+  assert.equal(toolRowAutoOpen(rowInput()), true, '三条件全真 → 展开（timing=group 恒真）')
+  assert.equal(toolRowAutoOpen(rowInput({ toolAutoExpand: false })), false)
+  assert.equal(toolRowAutoOpen(rowInput({ groupOpen: false })), false)
+  assert.equal(toolRowAutoOpen(rowInput({ groupAuto: false })), false)
+})
+
+test('toolRowAutoOpen：跟随四个收起时机', () => {
+  // ① self：做完就收
+  assert.equal(toolRowAutoOpen(rowInput({ timing: 'self', done: false })), true, 'self 未完成 → 展开')
+  assert.equal(toolRowAutoOpen(rowInput({ timing: 'self', done: true })), false, 'self 已完成 → 收起')
+
+  // ② next-call：只留最新一条已开始的操作
+  assert.equal(toolRowAutoOpen(rowInput({ timing: 'next-call' })), true, '自己是最新 → 展开')
+  assert.equal(toolRowAutoOpen(rowInput({ timing: 'next-call', latestStartedAnchorSeq: 11 })), false,
+    '有更新的操作 → 收起')
+
+  // ③ next-node：整批一起留到下一批
+  assert.equal(toolRowAutoOpen(rowInput({ timing: 'next-node' })), true, '自己是本批 → 展开')
+  assert.equal(toolRowAutoOpen(rowInput({ timing: 'next-node', latestStep: 6 })), false,
+    '下一批已出现 → 收起')
+
+  // ④ group：留到操作组收起
+  assert.equal(toolRowAutoOpen(rowInput({ timing: 'group', done: true, latestStep: 9 })), true,
+    'group 恒保持展开')
+})
+
+test('toolRowAutoOpen：未开始的行在 next-call 下不展开', () => {
+  // preparing 阶段的工具不该算作「最新一条已开始的操作」。
+  assert.equal(toolRowAutoOpen(rowInput({ timing: 'next-call', started: false })), false)
+})
+
+test('toolRowAutoOpen：这条判据同时决定「行是否展开」与「按钮是否隐藏」', () => {
+  // 两个调用点（use-tool-disclosure 与 AutoToolCallTree）必须用同一个函数，
+  // 否则会出现「行还亮着、按钮却已交回官方」这种不一致。
+  // 这里用一组典型取值断言结果，作为该契约的锚点。
+  const running = rowInput({ timing: 'next-node' })
+  assert.equal(toolRowAutoOpen(running), true, '运行中 → 行展开（因而按钮隐藏）')
+  const folded = rowInput({ timing: 'next-node', latestStep: 6 })
+  assert.equal(toolRowAutoOpen(folded), false, '已收起 → 行折叠（因而按钮交回官方）')
 })

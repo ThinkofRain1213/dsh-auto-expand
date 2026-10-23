@@ -50,6 +50,7 @@ import { toolStarted } from '../collapse-timing.ts'
 import { inspectCallFor } from '../inspect-button-scope.ts'
 import { GroupOpenContext } from '../group-open-context.ts'
 import { useAutoExpandSettings } from '../settings.ts'
+import { toolRowAutoOpen } from './tool-auto-open.ts'
 import { ToolRowContext, type ToolRowState } from './tool-row-context.ts'
 import { useAutoToolDisclosure } from './use-tool-disclosure.ts'
 
@@ -133,16 +134,29 @@ export function makeAutoToolCallTree(inner: ComponentType<never>): ComponentType
       [step, anchorSeq, started, done],
     )
     // ── P9：按设置决定是否透传 `inspectCall` ───────────────────────────────
-    // 必须订阅设置（`useAutoExpandSettings`），不能在 `apply()` 时读一次快照：
-    // 否则用户切换档位后，已经挂载的行不会响应，要刷新页面才生效。
+    // 判据与「这一行是否展开」**完全共用** `toolRowAutoOpen`：运行中就藏按钮，
+    // 收起后交回官方。因此按钮的消失时机永远与工具行的收起时机同步，
+    // 不会出现「行还亮着、按钮却已交回」这种不一致。
     //
-    // `group.auto` 标识「该操作组处于当前轮的自动展开窗口」，与操作组开关、
-    // 思考/工具开关同源——这里直接复用它判断「当前轮」。
+    // 必须订阅设置（`useAutoExpandSettings`），不能在 `apply()` 时读一次快照：
+    // 否则用户切换档位或收起时机后，已经挂载的行不会响应，要刷新页面才生效。
     const settings = useAutoExpandSettings()
     const group = useContext(GroupOpenContext)
+    const autoOpen = toolRowAutoOpen({
+      timing: settings.toolCollapseTiming,
+      done,
+      started,
+      step,
+      anchorSeq,
+      latestStep: group.latestStep,
+      latestStartedAnchorSeq: group.latestStartedAnchorSeq,
+      toolAutoExpand: settings.toolAutoExpand,
+      groupOpen: group.open,
+      groupAuto: group.auto,
+    })
     const inspectCall = inspectCallFor({
       scope: settings.inspectButtonHideScope,
-      auto: group.auto,
+      autoOpen,
       inspectCall: props.inspectCall as ((callId: string) => void) | undefined,
     })
     return (

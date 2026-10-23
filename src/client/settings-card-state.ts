@@ -53,8 +53,17 @@ export interface SettingsCardState {
   readonly reasoningTiming: SelectRowState
   readonly tool: SwitchRowState
   readonly toolTiming: SelectRowState
-  /** 隐藏查看按钮（P9）。 */
+  /** 隐藏查看按钮（P9）。**永不锁死**，与其它行不同。 */
   readonly inspectScope: SelectRowState
+  /**
+   * 选中「运行中隐藏」时，该档是否因自动展开关闭而**失效**。
+   *
+   * - `none`：有效；
+   * - `workGroup` / `own`：没有「运行中」可言，该档等同于「不隐藏」。
+   *
+   * 这不是门控——该行照样可以操作，只是说明里要点名原因。
+   */
+  readonly inspectScopeIdle: 'none' | 'workGroup' | 'own'
 }
 
 /**
@@ -101,12 +110,15 @@ export function deriveSettingsCardState(values: SwitchValues): SettingsCardState
       gatedText: innerLocked,
     },
     toolTiming: { locked: toolGate !== 'none', gate: toolGate },
-    // 隐藏查看按钮：只受操作组开关门控。
+    // 隐藏查看按钮：**永不锁死**（用户明确要求它是独立设置）。
     //
-    // 「仅当前轮」这一档依赖 `GroupOpenContext.auto`（该组是否处于当前轮的
-    // 自动展开窗口），操作组不自动展开时那个窗口概念就不存在了，因此与
-    // 思考/工具行同样受操作组开关门控；但它与思考、工具的展开毫无关系，
-    // 所以不被那两个开关影响。
-    inspectScope: { locked: innerLocked, gate: innerLocked ? 'workGroup' : 'none' },
+    // 但「运行中隐藏」这一档依赖自动展开：`enabled = 工具开关 && 组展开 && 组自动`
+    // 为假时没有「运行中」可言，该档实际等同于「不隐藏」。这不是门控——
+    // 行照样可操作，只是说明文案要点名原因（`inspectScopeIdle`）。
+    inspectScope: { locked: false, gate: 'none' },
+    // 优先报操作组（更上层），与时机行的 gate 规则一致。
+    inspectScopeIdle: !values.groupAutoExpand ? 'workGroup'
+      : !values.toolAutoExpand ? 'own'
+        : 'none',
   }
 }

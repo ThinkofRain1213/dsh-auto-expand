@@ -24,18 +24,18 @@ import {
 const CALL = () => {}
 
 test("'off'：原样透传，无论当前轮还是历史轮", () => {
-  assert.equal(inspectCallFor({ scope: 'off', auto: true, inspectCall: CALL }), CALL)
-  assert.equal(inspectCallFor({ scope: 'off', auto: false, inspectCall: CALL }), CALL)
+  assert.equal(inspectCallFor({ scope: 'off', autoOpen: true, inspectCall: CALL }), CALL)
+  assert.equal(inspectCallFor({ scope: 'off', autoOpen: false, inspectCall: CALL }), CALL)
 })
 
 test("'current'：当前轮置空，历史轮原样透传", () => {
-  assert.equal(inspectCallFor({ scope: 'current', auto: true, inspectCall: CALL }), undefined)
-  assert.equal(inspectCallFor({ scope: 'current', auto: false, inspectCall: CALL }), CALL)
+  assert.equal(inspectCallFor({ scope: 'current', autoOpen: true, inspectCall: CALL }), undefined)
+  assert.equal(inspectCallFor({ scope: 'current', autoOpen: false, inspectCall: CALL }), CALL)
 })
 
 test("'all'：一律置空", () => {
-  assert.equal(inspectCallFor({ scope: 'all', auto: true, inspectCall: CALL }), undefined)
-  assert.equal(inspectCallFor({ scope: 'all', auto: false, inspectCall: CALL }), undefined)
+  assert.equal(inspectCallFor({ scope: 'all', autoOpen: true, inspectCall: CALL }), undefined)
+  assert.equal(inspectCallFor({ scope: 'all', autoOpen: false, inspectCall: CALL }), undefined)
 })
 
 test('原始值本就是 undefined 时，三档都不得凭空造出回调', () => {
@@ -43,9 +43,9 @@ test('原始值本就是 undefined 时，三档都不得凭空造出回调', () 
   // 都必须保持 undefined——绝不能返回一个空函数，否则官方会判
   // `inspect !== undefined` 而渲染出一个点了没反应的按钮。
   for (const scope of INSPECT_BUTTON_HIDE_SCOPES) {
-    for (const auto of [true, false]) {
-      assert.equal(inspectCallFor({ scope, auto, inspectCall: undefined }), undefined,
-        `scope=${scope} auto=${auto} 必须保持 undefined`)
+    for (const autoOpen of [true, false]) {
+      assert.equal(inspectCallFor({ scope, autoOpen, inspectCall: undefined }), undefined,
+        `scope=${scope} autoOpen=${autoOpen} 必须保持 undefined`)
     }
   }
 })
@@ -54,9 +54,9 @@ test('未知取值回落到 off（旧存档 / 字段缺失）', () => {
   // 字段缺失时读出来是 undefined，必须等同于 off，否则已安装用户会
   // 在升级后莫名其妙地丢掉按钮。
   for (const bad of [undefined, null, '', 'nonsense']) {
-    assert.equal(inspectCallFor({ scope: bad, auto: true, inspectCall: CALL }), CALL,
+    assert.equal(inspectCallFor({ scope: bad, autoOpen: true, inspectCall: CALL }), CALL,
       `未知取值 ${String(bad)} 应回落到 off`)
-    assert.equal(inspectCallFor({ scope: bad, auto: false, inspectCall: CALL }), CALL,
+    assert.equal(inspectCallFor({ scope: bad, autoOpen: false, inspectCall: CALL }), CALL,
       `未知取值 ${String(bad)} 应回落到 off（历史轮）`)
   }
 })
@@ -69,12 +69,12 @@ test('取值列表：三个、顺序固定、默认 off', () => {
 
 // ── 包裹层透传契约 ──────────────────────────────────────────────────────
 
-test('包裹层透传契约：档位 × 当前轮状态 × 原始值 → 传给 Inner 的值', () => {
+test('包裹层透传契约：档位 × 是否运行中 × 原始值 → 传给 Inner 的值', () => {
   // 对应 AutoToolCallTree 里的 `inspectCall={inspectCallFor({...})}`。
   // 渲染层无法在 node:test 里挂载，所以用判据函数钉住"包裹层会传什么"。
-  // 这七种组合覆盖了当前轮/历史轮 × 三档的关键交叉。
+  // 这些组合覆盖了「运行中 / 已收起」× 三档的关键交叉。
   const cases = [
-    // [档位, group.auto, 原始值是否为 undefined, 期望是否原样透传]
+    // [档位, 是否运行中（autoOpen）, 原始值是否为 undefined, 期望是否原样透传]
     ['off', true, false, true],
     ['off', false, false, true],
     ['current', true, false, false],
@@ -84,10 +84,10 @@ test('包裹层透传契约：档位 × 当前轮状态 × 原始值 → 传给 
     ['all', true, true, false],
     ['current', false, true, false],
   ]
-  for (const [scope, auto, missing, shouldPassThrough] of cases) {
+  for (const [scope, autoOpen, missing, shouldPassThrough] of cases) {
     const original = missing ? undefined : CALL
-    const result = inspectCallFor({ scope, auto, inspectCall: original })
-    const label = `scope=${scope} auto=${auto} 原始值=${missing ? 'undefined' : 'callback'}`
+    const result = inspectCallFor({ scope, autoOpen, inspectCall: original })
+    const label = `scope=${scope} autoOpen=${autoOpen} 原始值=${missing ? 'undefined' : 'callback'}`
     if (shouldPassThrough) {
       assert.equal(result, CALL, `${label} 应原样透传`)
     } else {

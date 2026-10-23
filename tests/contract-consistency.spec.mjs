@@ -258,6 +258,24 @@ test('客户端快照接管时把隐藏范围读进设置', () => {
     'sync() 的比较必须包含 inspectButtonHideScope，否则该字段变化不会通知订阅者')
 })
 
+test('「运行中隐藏」的判据必须与工具行的展开判据同源', () => {
+  // 两处调用同一个 toolRowAutoOpen：use-tool-disclosure 决定行是否展开，
+  // AutoToolCallTree 决定「查看」按钮是否隐藏。各算各的会出现
+  // 「行已经收起了、按钮却还藏着」这种不一致——那正是 P9 第一版的错误。
+  const disclosure = read('src/client/tool/use-tool-disclosure.ts')
+  const wrapper = read('src/client/tool/AutoToolCallTree.tsx')
+  for (const [name, source] of [['use-tool-disclosure', disclosure], ['AutoToolCallTree', wrapper]]) {
+    assert.match(source, /toolRowAutoOpen\(/, `${name} 必须调用 toolRowAutoOpen`)
+    // 不允许再各自拼 autoOpenFor。只匹配「代码调用」——即缩进后的语句位置，
+    // 不匹配注释与行内代码引用（如 `autoOpenFor()`）。
+    assert.equal(/^\s+(?:const|return)[^\n]*autoOpenFor\(/m.test(source), false,
+      `${name} 不应在代码里直接调用 autoOpenFor；一律经 toolRowAutoOpen`)
+  }
+  // 包裹层必须把 autoOpen（行级）传给判据，而不是 group.auto（组级）。
+  assert.match(wrapper, /inspectCallFor\(\{[\s\S]*?autoOpen,/,
+    'AutoToolCallTree 必须用 autoOpen（行级）而不是 group.auto（组级）作为档位判据')
+})
+
 test('四个时机的文案键在思考与工具两侧都齐备', () => {
   // 文案是唯一一处"写错不报错、只是显示空白下拉项"的地方。
   const zhSource = read('src/client/locales.ts')

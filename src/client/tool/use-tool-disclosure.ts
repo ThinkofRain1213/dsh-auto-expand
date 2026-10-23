@@ -41,8 +41,7 @@ import type { UseDisclosure } from '../contract/slots.ts'
 import { useAutoDisclosure } from '../auto-disclosure.ts'
 import { useAutoExpandSettings } from '../settings.ts'
 import { GroupOpenContext } from '../group-open-context.ts'
-import { autoOpenFor, isLatestAnchor, isLatestStep } from '../collapse-timing.ts'
-import { toolAutoOpen } from './tool-auto-open.ts'
+import { toolRowAutoOpen } from './tool-auto-open.ts'
 import { ToolRowContext } from './tool-row-context.ts'
 
 /**
@@ -56,20 +55,20 @@ export function useAutoToolDisclosure(): ReturnType<UseDisclosure> {
   const settings = useAutoExpandSettings()
   const group = useContext(GroupOpenContext)
   const row = useContext(ToolRowContext)
-  const { open, setOpen, toggle } = useAutoDisclosure(autoOpenFor({
+  // 判据抽在 `toolRowAutoOpen` 里：包裹层（决定「查看」按钮是否隐藏）
+  // 调用的也是同一个函数，两处不可能算出不同结论。
+  const { open, setOpen, toggle } = useAutoDisclosure(toolRowAutoOpen({
     timing: settings.toolCollapseTiming,
     done: row.done,
-    // 「下一批操作出现时」用批次坐标（同 step 一起展开）。
-    isLatestBatch: isLatestStep(row.step, group.latestStep),
-    // 「下一条操作出现时」用操作坐标（只留最新一条**已开始**的操作）。
-    // 未开始的行（参数还在流式）一律不展开：它们还没轮到。
-    isLatestNode: row.started && isLatestAnchor(row.anchorSeq, group.latestStartedAnchorSeq),
+    started: row.started,
+    step: row.step,
+    anchorSeq: row.anchorSeq,
+    latestStep: group.latestStep,
+    latestStartedAnchorSeq: group.latestStartedAnchorSeq,
     // 三合取仍由 `toolAutoOpen` 表达（它有独立单测），与思考行的 `enabled` 同构。
-    enabled: toolAutoOpen({
-      toolAutoExpand: settings.toolAutoExpand,
-      groupOpen: group.open,
-      groupAuto: group.auto,
-    }),
+    toolAutoExpand: settings.toolAutoExpand,
+    groupOpen: group.open,
+    groupAuto: group.auto,
   }))
   return { expanded: open, setExpanded: setOpen, toggle }
 }

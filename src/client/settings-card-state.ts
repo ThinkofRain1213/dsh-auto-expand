@@ -1,24 +1,26 @@
 /**
- * 设置卡片的两行开关状态。
+ * 设置卡片五行（三个开关 + 两个收起时机）的状态推导。
  *
  * 单独成模块的理由与 `settings-write.ts` / `scroll-align.ts` 相同：这是有分支的
  * 判定逻辑，必须能被直接断言。设置卡片的 DOM 渲染需要 React 与 slot 运行时，
- * 但"哪一行该变灰、开关该不该响应"是纯数据推导。
+ * 但「哪一行该变灰」是纯数据推导。
  *
- * ## 为什么需要"变灰"
+ * ## 为什么需要「变灰」
  *
- * 思考块渲染在 group body **内部**（`AutoReasoningRow` 通过 `GroupOpenContext`
- * 读大段的展开状态），大段折叠时思考不可见。所以"展开工作大段"关掉之后，
- * "展开思考过程"是一个**永远不会生效**的开关。
+ * 思考块与工具行都渲染在 group body **内部**（两者都从 `GroupOpenContext`
+ * 读大段的展开状态），大段折叠时它们都不可见。所以「自动展开操作组」关掉之后，
+ * 「自动展开思考过程」与「自动展开工具结果」都是**永远不会生效**的开关。
  *
- * 两个开关在界面上却长得完全独立。不把依赖关系显示出来，UI 就在撒谎——用户会
- * 反复拨弄一个毫无反应的开关，只会认为插件坏了。
+ * 再往下一层：**某个开关关闭时，该层的收起时机也不生效**——没有自动展开，
+ * 就没有「什么时候收起」可言。所以时机行比开关行多一道门控，而且需要知道
+ * **被谁锁住**，描述里才好点名那个开关。
  */
 
-/** 两个开关的当前值。 */
+/** 三个开关的当前值。 */
 export interface SwitchValues {
   readonly groupAutoExpand: boolean
   readonly reasoningAutoExpand: boolean
+  readonly toolAutoExpand: boolean
 }
 
 /** 一行开关的渲染状态。 */
@@ -27,37 +29,75 @@ export interface SwitchRowState {
   readonly checked: boolean
   /** 是否拒绝输入并变灰。 */
   readonly locked: boolean
-  /** 描述行是否应换成"由谁控制"的说明。 */
+  /** 描述行是否应换成「由谁控制」的说明。 */
   readonly gatedText: boolean
 }
 
-/** 整张卡片的两行状态。 */
+/**
+ * 一行下拉的渲染状态。
+ *
+ * 与 {@link SwitchRowState} 的区别：时机行的「值」是枚举（由调用方直接读设置），
+ * 所以只需要表达「锁没锁」和「被谁锁」——后者决定描述里该点名哪个开关。
+ */
+export interface SelectRowState {
+  /** 是否拒绝输入并变灰。 */
+  readonly locked: boolean
+  /** 锁定原因：`none` 未锁 / `workGroup` 由操作组开关锁 / `own` 由本层开关锁。 */
+  readonly gate: 'none' | 'workGroup' | 'own'
+}
+
+/** 整张卡片的五行状态。 */
 export interface SettingsCardState {
   readonly workGroup: SwitchRowState
   readonly reasoning: SwitchRowState
+  readonly reasoningTiming: SelectRowState
+  readonly tool: SwitchRowState
+  readonly toolTiming: SelectRowState
 }
 
 /**
- * 推导两个开关的渲染状态。
+ * 推导五行的渲染状态。
  *
- * 三条规则：
+ * 四条规则：
  *
- *  1. **大段开关永不被锁**。它是这组设置里唯一能独立决策的一层；
- *  2. **大段关闭 → 思考开关被锁**。它确实不会生效，让用户能拨动是在骗人；
- *  3. **锁住时保留 `checked` 原值，不强制 `false`**。这样重新打开大段后，
- *     用户之前对思考的选择原样回来（DPG 的 `injectDoc` 行是同样的处理）。
+ *  1. **操作组开关永不被锁**。它是这组设置里唯一能独立决策的一层；
+ *  2. **操作组关闭 → 思考/工具开关被锁**。它们确实不会生效；
+ *  3. **开关关闭 → 该层的时机行被锁**，且锁定原因记为 `own`；操作组关闭时
+ *     记为 `workGroup`（优先），这样描述里点名的是最近的那一层的控制者；
+ *  4. **锁住时保留 `checked` 原值，不强制 `false`**。这样重新打开上层后，
+ *     用户之前的选择原样回来（DPG 的 `injectDoc` 行是同样的处理）。
  *
  * @param values - 当前设置。
- * @returns 两行各自的渲染状态。
+ * @returns 五行各自的渲染状态。
  */
 export function deriveSettingsCardState(values: SwitchValues): SettingsCardState {
-  const reasoningLocked = !values.groupAutoExpand
+  // 开关行的锁定条件：都渲染在 group body 内部，操作组不开就无从生效。
+  const innerLocked = !values.groupAutoExpand
+  /**
+   * 时机行的锁定原因：先看操作组（更上层），再看本层开关。
+   * @param enabled - 该层自己的自动展开开关。
+   * @returns 锁定原因。
+   */
+  const timingGate = (enabled: boolean): SelectRowState['gate'] => {
+    if (!values.groupAutoExpand) return 'workGroup'
+    if (!enabled) return 'own'
+    return 'none'
+  }
+  const reasoningGate = timingGate(values.reasoningAutoExpand)
+  const toolGate = timingGate(values.toolAutoExpand)
   return {
     workGroup: { checked: values.groupAutoExpand, locked: false, gatedText: false },
     reasoning: {
       checked: values.reasoningAutoExpand,
-      locked: reasoningLocked,
-      gatedText: reasoningLocked,
+      locked: innerLocked,
+      gatedText: innerLocked,
     },
+    reasoningTiming: { locked: reasoningGate !== 'none', gate: reasoningGate },
+    tool: {
+      checked: values.toolAutoExpand,
+      locked: innerLocked,
+      gatedText: innerLocked,
+    },
+    toolTiming: { locked: toolGate !== 'none', gate: toolGate },
   }
 }

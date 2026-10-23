@@ -1,7 +1,7 @@
 /**
  * 浏览器侧的设置源。
  *
- * 两个开关通过官方 `configForms` 读写（Host 设置文档），因此跨重启保留。
+ * 设置通过官方 `configForms` 读写（Host 设置文档），因此跨重启保留。
  *
  * 为什么用模块级单例而不是 React Context：
  *  - `AutoGroupSeat` 与 `AutoReasoningRow` 都深埋在克隆组件树里，
@@ -15,6 +15,7 @@
 import { useSyncExternalStore } from 'react'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { writeOptimistic } from './settings-write.ts'
+import type { CollapseTiming } from './collapse-timing.ts'
 
 /** 本插件设置命名空间（= Host 半边在 `cordis.patch.yml` 里的 entry id）。 */
 export const AUTO_EXPAND_NAMESPACE = 'auto-expand'
@@ -22,17 +23,28 @@ export const AUTO_EXPAND_NAMESPACE = 'auto-expand'
 /** 字段名（与 Host schema 一致）。 */
 export const GROUP_AUTO_EXPAND_FIELD = 'groupAutoExpand'
 export const REASONING_AUTO_EXPAND_FIELD = 'reasoningAutoExpand'
+export const TOOL_AUTO_EXPAND_FIELD = 'toolAutoExpand'
+export const REASONING_COLLAPSE_TIMING_FIELD = 'reasoningCollapseTiming'
+export const TOOL_COLLAPSE_TIMING_FIELD = 'toolCollapseTiming'
 
-/** 两个开关的默认值：默认全开（插件的核心价值）。 */
+/** 默认设置：三个开关默认全开；两个时机默认「下一批操作出现时」。 */
 export const DEFAULT_SETTINGS: AutoExpandSettings = {
   groupAutoExpand: true,
   reasoningAutoExpand: true,
+  toolAutoExpand: true,
+  reasoningCollapseTiming: 'next-node',
+  toolCollapseTiming: 'next-node',
 }
 
 /** 本插件设置的可观察快照。 */
 export interface AutoExpandSettings {
   readonly groupAutoExpand: boolean
   readonly reasoningAutoExpand: boolean
+  readonly toolAutoExpand: boolean
+  /** 思考的收起时机（与工具同一取值集合）。 */
+  readonly reasoningCollapseTiming: CollapseTiming
+  /** 工具的收起时机（与思考同一取值集合）。 */
+  readonly toolCollapseTiming: CollapseTiming
 }
 
 /** `configForms.get()` 返回的最小契约（只取本插件用到的部分）。 */
@@ -53,9 +65,9 @@ export const settingsSource: SnapshotStore<AutoExpandSettings> = createSnapshotS
 let attached: { form: ConfigFormLike; dispose: () => void } | undefined
 
 /**
- * 订阅一个 `configForms` 表单，并在两个布尔值变化时更新 `settingsSource`。
+ * 订阅一个 `configForms` 表单，并在任一设置变化时更新 `settingsSource`。
  *
- * 只在**两个布尔真正变化**时替换快照，因此表单的 `status`/`revision`
+ * 只在**设置值真正变化**时替换快照，因此表单的 `status`/`revision`
  * 抖动不会引起下游重渲染。
  * @param form - 官方 configForms 表单，命名空间为本插件 entry id。
  * @returns 释放订阅的函数。
@@ -68,6 +80,10 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
     return {
       groupAutoExpand: value?.groupAutoExpand ?? DEFAULT_SETTINGS.groupAutoExpand,
       reasoningAutoExpand: value?.reasoningAutoExpand ?? DEFAULT_SETTINGS.reasoningAutoExpand,
+      toolAutoExpand: value?.toolAutoExpand ?? DEFAULT_SETTINGS.toolAutoExpand,
+      reasoningCollapseTiming:
+        value?.reasoningCollapseTiming ?? DEFAULT_SETTINGS.reasoningCollapseTiming,
+      toolCollapseTiming: value?.toolCollapseTiming ?? DEFAULT_SETTINGS.toolCollapseTiming,
     }
   }
 
@@ -75,7 +91,10 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
     const next = read()
     const current = settingsSource.getSnapshot()
     if (next.groupAutoExpand === current.groupAutoExpand
-      && next.reasoningAutoExpand === current.reasoningAutoExpand) return
+      && next.reasoningAutoExpand === current.reasoningAutoExpand
+      && next.toolAutoExpand === current.toolAutoExpand
+      && next.reasoningCollapseTiming === current.reasoningCollapseTiming
+      && next.toolCollapseTiming === current.toolCollapseTiming) return
     settingsSource.set(next)
   }
 
@@ -100,15 +119,15 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
  * @param value - 新值。
  * @returns 写入是否被 Host 接受。
  */
-export async function setAutoExpandSetting(
-  field: keyof AutoExpandSettings,
-  value: boolean,
+export async function setAutoExpandSetting<Field extends keyof AutoExpandSettings>(
+  field: Field,
+  value: AutoExpandSettings[Field],
 ): Promise<boolean> {
   return writeOptimistic(settingsSource, attached?.form, field, value)
 }
 
 /**
- * 订阅本插件的两个开关。
+ * 订阅本插件的设置。
  * @returns 当前设置快照。
  */
 export function useAutoExpandSettings(): AutoExpandSettings {

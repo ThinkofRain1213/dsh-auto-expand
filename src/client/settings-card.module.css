@@ -76,3 +76,51 @@
 .gated {
   color: var(--dsw-alias-label-dimmed);
 }
+
+/*
+ * 下拉的触发按钮（时机行右侧）。
+ *
+ * 数值照抄 DPG 的 `settings-card.module.css:88-111`——同一个容器里的插件卡片
+ * 必须与官方设置页的选择器几何一致（高度 / 圆角 / 字号 / 背景 token）。
+ */
+.selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-module-platform);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+.selector:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/*
+ * 被上层控制时的下拉按钮。
+ *
+ * **整个控件压暗，而不是只改文字色。** 官方对带背景的控件就是这么做的：
+ * `Switch.module.css:23` 用 `opacity: .5`，`SegmentedControl.module.css:61` 用
+ * `opacity: .4`。只改 `color` 会留下「灰字 + 亮底」，与旁边几行的 Switch 明显
+ * 不一致，读起来像坏了。
+ *
+ * 注意与 `.gated` 的区别：`.gated` 只作用于**纯文本标签**，那里用颜色 token
+ * 更好（`opacity` 会创建合成层，DPG 记录过亮度抖动）；这里是**控件本身**，
+ * 与官方一致地用 opacity。
+ */
+.selector:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.chevron {
+  flex: none;
+}

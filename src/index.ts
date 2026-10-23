@@ -1,8 +1,9 @@
 /**
  * Host 半边：本插件的持久化设置。
  *
- * 本插件的行为全部发生在浏览器渲染层，唯一的 Host 职责是**保存两个开关**，
- * 让它们跨重启保留，并被浏览器通过 `configForms` 读到。
+ * 本插件的行为全部发生在浏览器渲染层，唯一的 Host 职责是**保存设置**：
+ * 三个自动展开开关，以及思考 / 工具各自的收起时机。它们跨重启保留，并被
+ * 浏览器通过 `configForms` 读到。
  *
  * 机制说明（与 `ui-chat` 同构）：
  *  - 导出的 `Config` 是本 Loader entry 的设置 schema，Host 据此建立一个
@@ -22,10 +23,48 @@ export const AUTO_EXPAND_NAMESPACE = 'auto-expand'
 /** 设置字段名。 */
 export const GROUP_AUTO_EXPAND_FIELD = 'groupAutoExpand'
 export const REASONING_AUTO_EXPAND_FIELD = 'reasoningAutoExpand'
+export const TOOL_AUTO_EXPAND_FIELD = 'toolAutoExpand'
+export const REASONING_COLLAPSE_TIMING_FIELD = 'reasoningCollapseTiming'
+export const TOOL_COLLAPSE_TIMING_FIELD = 'toolCollapseTiming'
 
-/** 两个开关的默认值：默认全开（插件的核心价值）。 */
+/** 三个开关的默认值：默认全开（插件的核心价值）。 */
 export const DEFAULT_GROUP_AUTO_EXPAND = true
 export const DEFAULT_REASONING_AUTO_EXPAND = true
+export const DEFAULT_TOOL_AUTO_EXPAND = true
+
+/**
+ * 收起时机的全部取值，**顺序 = 收起由早到晚**（与下拉展示顺序一致）。
+ *
+ * 思考与工具**共用这一份**：两者都由操作组提供同样的两个坐标（`step` 批次 /
+ * `anchorSeq` 操作），四个时机对两方都真实成立。此前曾给思考裁掉
+ * `'next-call'`，那是人为制造的不对称，已废弃（2026-10-23）。
+ *
+ * 与浏览器半边的 `src/client/collapse-timing.ts` 必须逐字一致——两份常量分属
+ * 两个 bundle，没有类型系统能把它们串起来（`contract-consistency` 测试会守住）。
+ */
+export const COLLAPSE_TIMINGS = ['self', 'next-call', 'next-node', 'group'] as const
+
+/** 收起时机。 */
+export type CollapseTiming = typeof COLLAPSE_TIMINGS[number]
+
+/** 思考的收起时机（与工具同一取值集合）。 */
+export type ReasoningCollapseTiming = CollapseTiming
+
+/** 工具的收起时机（与思考同一取值集合）。 */
+export type ToolCollapseTiming = CollapseTiming
+
+/**
+ * 默认时机：思考与工具**都默认「下一批操作出现时」**（`'next-node'`，
+ * 2026-10-23 用户指定）。
+ *
+ * 语义：该行的内容保持可见，直到组内出现更新的一批（下一次模型输出派发的
+ * 操作）才收起——这样「当前正在做的那件事」始终可见，而做完的部分自动让位。
+ *
+ * ⚠️ 这两个默认值**不等于 P8 之前的旧行为**（旧行为是思考 `'self'`、工具
+ * `'group'`）。改默认值会让已安装用户的行为发生变化，因此必须是用户的明确决定。
+ */
+export const DEFAULT_REASONING_COLLAPSE_TIMING: ReasoningCollapseTiming = 'next-node'
+export const DEFAULT_TOOL_COLLAPSE_TIMING: ToolCollapseTiming = 'next-node'
 
 /** 本插件的持久化设置。 */
 export interface AutoExpandSettings {
@@ -33,12 +72,21 @@ export interface AutoExpandSettings {
   groupAutoExpand: boolean
   /** 流式中的思考块是否自动展开。 */
   reasoningAutoExpand: boolean
+  /** 当前运行的 process group 内的工具行是否自动展开。 */
+  toolAutoExpand: boolean
+  /** 思考行的收起时机（与工具同一取值集合）。 */
+  reasoningCollapseTiming: ReasoningCollapseTiming
+  /** 工具行的收起时机（与思考同一取值集合）。 */
+  toolCollapseTiming: ToolCollapseTiming
 }
 
 /** 运行时设置投影到浏览器。 */
 export interface Config {
   groupAutoExpand: Volatile<boolean>
   reasoningAutoExpand: Volatile<boolean>
+  toolAutoExpand: Volatile<boolean>
+  reasoningCollapseTiming: Volatile<ReasoningCollapseTiming>
+  toolCollapseTiming: Volatile<ToolCollapseTiming>
 }
 
 /**
@@ -50,6 +98,13 @@ export interface Config {
 export const Config = z.object({
   [GROUP_AUTO_EXPAND_FIELD]: z.boolean().default(DEFAULT_GROUP_AUTO_EXPAND).volatile(),
   [REASONING_AUTO_EXPAND_FIELD]: z.boolean().default(DEFAULT_REASONING_AUTO_EXPAND).volatile(),
+  [TOOL_AUTO_EXPAND_FIELD]: z.boolean().default(DEFAULT_TOOL_AUTO_EXPAND).volatile(),
+  // enum 写法照官方 `ui-chat/src/chat-settings.ts:75`。
+  // 两个字段**共用同一取值集合**（思考与工具的真实坐标相同）。
+  [REASONING_COLLAPSE_TIMING_FIELD]: z.union([...COLLAPSE_TIMINGS])
+    .default(DEFAULT_REASONING_COLLAPSE_TIMING).volatile(),
+  [TOOL_COLLAPSE_TIMING_FIELD]: z.union([...COLLAPSE_TIMINGS])
+    .default(DEFAULT_TOOL_COLLAPSE_TIMING).volatile(),
 })
 
 /**

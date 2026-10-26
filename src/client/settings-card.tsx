@@ -315,19 +315,30 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
  *
  * 组件定义在渲染过程中产生，是 React 里最典型的性能与状态 bug 来源。
  * 挪到模块级后，组件类型稳定，React 走正常的更新路径。
- * @param props - 分组标题、`aria-labelledby` 的锚点 id、组内各行。
- * @returns 一个分节。
+ * @param props - 分组标题、`aria-labelledby` 的锚点 id、是否在顶部画分隔线、组内各行。
+ * @returns 一个分节（可能带前置分隔线）。
  */
-function Section({ id, title, children }: {
+function Section({ id, title, divider, children }: {
   readonly id: string
   readonly title: string
+  /**
+   * 是否在本组上方画一条分隔线（第一组不画）。
+   *
+   * 线是**独立元素**而不是 `<section>` 的 `border-top`：`border` 属于某一个块，
+   * 会让它的 padding 不对称，线就贴到上方那组的内容上（详见 CSS 的 `.rule` 注释）。
+   * 独立元素落在两组各自的 `padding: 16px 0` 之间，天然居中。
+   */
+  readonly divider: boolean
   readonly children: ReactNode
 }) {
   return (
-    <section className={css.section} aria-labelledby={id}>
-      <h3 className={css.heading} id={id}>{title}</h3>
-      {children}
-    </section>
+    <>
+      {divider && <div className={css.rule} role="presentation" />}
+      <section className={css.section} aria-labelledby={id}>
+        <h3 className={css.heading} id={id}>{title}</h3>
+        {children}
+      </section>
+    </>
   )
 }
 
@@ -371,7 +382,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
   }))
   return (
     <div className={css.stack}>
-      <Section id={`${sectionId}-workgroup`} title={t('groupWorkGroup' as SettingsKey)}>
+      <Section id={`${sectionId}-workgroup`} title={t('groupWorkGroup' as SettingsKey)} divider={false}>
         <SwitchRow
           title={t('workGroupTitle' as SettingsKey)}
           description={t('workGroupDesc' as SettingsKey)}
@@ -381,7 +392,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
         />
       </Section>
 
-      <Section id={`${sectionId}-reasoning`} title={t('groupReasoning' as SettingsKey)}>
+      <Section id={`${sectionId}-reasoning`} title={t('groupReasoning' as SettingsKey)} divider>
         <SwitchRow
           title={t('reasoningTitle' as SettingsKey)}
           description={state.reasoning.gatedText ? gatedByWorkGroup : t('reasoningDesc' as SettingsKey)}
@@ -403,7 +414,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
         />
       </Section>
 
-      <Section id={`${sectionId}-tool`} title={t('groupTool' as SettingsKey)}>
+      <Section id={`${sectionId}-tool`} title={t('groupTool' as SettingsKey)} divider>
         <SwitchRow
           title={t('toolTitle' as SettingsKey)}
           description={state.tool.gatedText ? gatedByWorkGroup : t('toolDesc' as SettingsKey)}
@@ -434,7 +445,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
         />
       </Section>
 
-      <Section id={`${sectionId}-height`} title={t('groupHeight' as SettingsKey)}>
+      <Section id={`${sectionId}-height`} title={t('groupHeight' as SettingsKey)} divider>
         {/* 高度开关永不锁死（它自己能独立决策）；大段开关关闭时它仍可编辑，
             只是用描述说明「暂不生效」——与第六行同一套做法。 */}
         <SwitchRow

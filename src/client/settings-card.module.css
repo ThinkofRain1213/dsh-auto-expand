@@ -133,28 +133,66 @@
 /* ── 一级分组 ──────────────────────────────────────────────────────────── */
 
 /*
- * 一个分组。**不持有任何纵向留白。**
+ * 一个分组：**组边界的 32px 全部由它提供**。
  *
- * ## 为什么纵向往外让给「行」和「标题」
+ * ## 三个值各自负责什么
  *
- * 官方 `SubagentCard` 的 `.section` 是 `padding: 16px 0`，那是因为它里面全是
- * `SettingsValueField`（自带 `padding: 12px 0`）—— 官方靠这两层叠加出间距。
+ * | 值 | 负责 |
+ * |---|---|
+ * | `padding: 16px 0` | 组边界的一侧（相邻两组合起来 = 32px，与 DPG 同值） |
+ * | `.section > :last-child { margin-bottom: -12px }` | 吃掉组内最后一个元素自带的下 padding |
+ * | `.heading { margin: 0 }` | 标题不额外加边距 |
  *
- * 本卡片混用了两种行：横向 `.row`（自带 `12px 0`）与官方纵向字段（自带 `12px 0`）。
- * 若 `.section` 再加纵向 padding，就会变成「行 12 + 分节 16」的叠加，而**分隔线
- * 两侧的构成不同**：上侧是「行 12 + 分节 16」，下侧是「分节 16 + 标题 0」——
- * 差了一倍，这是肉眼最容易看出的一种不整齐。
+ * 三者合起来的结果：最后一行内容 → 组边界 = 16px，组边界 → 下组标题 = 16px，
+ * 分隔线落在中间 —— 与 DPG 的「32px 中间落一条线，两侧各 16」完全等价。
  *
- * 因此纵向留白全部交给：
- * 1. 每行自己的 `padding: 12px 0`（行与行之间 = 24px）；
- * 2. 标题自己的 `margin-top: 12px`（只对「线后面那一组」生效，见 `.rule + .section`）；
- * 3. `.rule` 的 `margin: 0`（线本身不占空间，位置由两侧元素决定）。
+ * ## 为什么必须吃掉最后那一行的 padding
  *
- * 结果：行→线 12px、线→标题 12px，**对称**，且 `.rule` 与 DPG 的写法完全一致。
+ * 组内的行自带 `padding: 12px 0`（行距 24px 靠它）。若不去管它，组边界会变成
+ * 「行 12 + 分节 16」= 28px，而组边界另一侧的标题是 0 —— **线就偏向上方那组**。
+ * 负 margin 把那份内部 padding 归零，`section` 的 16px 才是唯一来源。
+ *
+ * 官方 `SubagentCard` 的 `.section` 也是 `padding: 16px 0`，但它不需要这一条：
+ * 官方的 `.field` 只有 `12px` 且标题 margin 0，两侧天然都是「16 + 12」。
+ * 本卡片的行距是 24px，多出来的那 12px 必须显式消掉。
  */
 .section {
   min-width: 0;
-  padding: 0;
+  padding: 16px 0;
+}
+
+/*
+ * 吸掉分组内**最后一个元素自带的底部 padding**（12px）。
+ *
+ * ## 为什么需要这一条
+ *
+ * `.section` 的 `padding: 16px 0` 应该成为「内容 → 组边界」的唯一间距。但组内最后
+ * 一个元素自己也带底部 padding（`.row` 是 `12px`；NumberRow 的 `.fieldSlot` 内部
+ * 是官方 `.field` 的 `12px`），两者会叠加成 28px，**而组边界另一侧的标题是 0** ——
+ * 线就偏向上方那组。
+ *
+ * `-12px` 把那份内部 padding 吃掉，于是：
+ *
+ * | 位置 | 构成 | 值 |
+ * |---|---|---|
+ * | 最后一行内容 → 组边界 | 行 12 − 12 + section 16 | **16px** |
+ * | 组边界 → 下组标题 | section 16 + heading 0 | **16px** |
+ *
+ * 线两侧各 16px，线自身 `margin: 0` —— 与 DPG 的「32px 中间落一条线」完全等价。
+ *
+ * ## 对两种行都成立
+ *
+ * - `.row`：自带的 `padding-bottom: 12px` 被完全抵消 → 0
+ * - `.fieldSlot`：内部官方 `.field` 的 12px 抵消后，`.hintRow` 的 12px 仍剩一点，
+ *   但 `-12px` 作用于整个 `fieldSlot`，最终同样归零
+ *
+ * ## 前提
+ *
+ * **每一组至少有一个设置行。** 若某组只有标题没有内容，这条负 margin 会落在
+ * `<h3>` 上，把标题往上拽 12px。新增空分组时要一并处理。
+ */
+.section > :last-child {
+  margin-bottom: -12px;
 }
 
 /*
@@ -162,24 +200,24 @@
  *
  * ## `margin: 0` 是刻意的
  *
- * 线本身**不占纵向空间**，它的位置完全由两侧元素决定：
+ * 线本身**不占纵向空间**，位置完全由两侧元素决定：
  *
  * | 侧 | 紧邻元素 | 它贡献的空白 |
  * |---|---|---|
- * | 上 | 一行 `.row` | `padding-bottom: 12px` |
- * | 下 | 一个 `<h3>` | `margin-top: 12px`（见下方 `.rule + .section` 规则） |
+ * | 上 | `.section` 的 `padding-bottom: 16px`（内部最后一行已被负 margin 抵消） | 16px |
+ * | 下 | `.section` 的 `padding-top: 16px` + 标题 `margin: 0` | 16px |
  *
- * 两侧各 12px ⇒ 线天然居中，不需要任何补偿。
+ * 两侧各 16px ⇒ 线天然居中。**内容到内容共 32px，与 DPG 同值**
+ * （DPG 原注释：`Content-to-content spacing is therefore the same 32px on a
+ * ruled boundary as on an unruled one, which is what makes the lines read as
+ * marks rather than as gaps`）。
  *
- * 这与 DPG 的 `.rule { margin: 0 }` 一致。差异只在**由谁贡献那 12px**：
- * DPG 是「`row` 的 16px padding / `group` 的 16px padding」，
- * 本卡片是「`row` 的 12px padding / 标题的 12px margin」——
- * 因为本卡片的行**嵌在 `.section` 里**，`section` 一旦带 padding 就会与行的
- * padding 叠加，两侧不再对称。
+ * ## 历史
  *
- * ⚠️ 早先这里写的是 `margin: 4px 0 16px`（用非对称 margin 把两侧补成各 16px）。
- * 那个做法能工作，但让线的 margin 承担了补偿职责，值偏离 DPG 且解释成本高。
- * 现在把「下侧那 12px」还给标题自己，线的 margin 归零。
+ * 更早这里写过 `margin: 4px 0 16px`——用非对称 margin 把两侧补成各 16px。
+ * 能工作，但让线承担了补偿职责，值偏离 DPG 且解释成本高。后来一度改成
+ * 「标题 `margin-top: 12px` + 线 `margin: 0`」，线两侧各 12px。
+ * 现在由 `.section` 的 padding 统一提供 16px，线只需 `margin: 0`。
  *
  * ## 为什么是独立元素而不是 `border-top`
  *
@@ -198,13 +236,11 @@
 /*
  * 分组标题。
  *
- * **默认 `margin: 0`** —— 标题与下方第一行之间的留白全部由那一行自己的
- * `padding-top` 提供。（早先写过 `margin: 0 0 4px`，那 4px 没有任何依据。）
+ * **`margin: 0`** —— 标题的上下留白全部由 `.section` 的 padding 与下方第一行的
+ * `padding-top` 提供，标题自己不加任何边距。
  *
- * 只有**前面有分隔线的那一组**才需要 `margin-top: 12px`：它提供「线→标题」
- * 的那 12px，与上一行 `padding-bottom: 12px` 对称。见下方相邻选择器规则。
- *
- * 第一组的标题不加，否则卡片顶部会凭空多出 12px。
+ * 早先写过 `margin: 0 0 4px`（那 4px 没有任何依据），也写过「有线的那组加
+ * `margin-top: 12px`」——后者由 `.section` 的 padding 接管后已删除。
  */
 .heading {
   margin: 0;
@@ -212,33 +248,6 @@
   font-weight: 600;
   line-height: 1.5;
   color: var(--dsw-alias-label-primary);
-}
-
-/*
- * 「线后面那一组」的标题顶上补 12px。
- *
- * ## 为什么用相邻选择器而不是给所有标题加、再排除第一组
- *
- * `.rule + .section > .heading` 只依赖一个事实：**线的下一个兄弟是它所属的
- * section** —— 这正是 `Section` 组件的结构：
- *
- * ```tsx
- * {divider && <div className={css.rule} />}
- * <section className={css.section}>…<h3 className={css.heading}>…</section>
- * ```
- *
- * 另一种写法（`.heading { margin-top: 12px }` + `.section:first-child` 排除）
- * 依赖「`.section` 是 `.stack` 的第一个子元素」，卡片顶部一旦加别的东西就会失效。
- *
- * ## 为什么用 margin 而不是 section 的 padding
- *
- * 两者视觉效果相同，但 `.stack` 是 `display: flex`，`.section` 是 flex item——
- * **flex item 不会与其子元素发生 margin 合并**，所以标题的 margin-top 稳定留在
- * section 内部。若将来 `.stack` 改成普通 block，标题的 margin 会 collapse 到
- * section 外面（视觉仍是 12px，但归属变了）。
- */
-.rule + .section > .heading {
-  margin-top: 12px;
 }
 
 /* ── 纵向字段（输入框项）──────────────────────────────────────────────── */

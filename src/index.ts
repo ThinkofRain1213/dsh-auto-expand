@@ -90,7 +90,7 @@ export type InspectButtonHideScope = typeof INSPECT_BUTTON_HIDE_SCOPES[number]
 export const DEFAULT_INSPECT_BUTTON_HIDE_SCOPE: InspectButtonHideScope = 'off'
 
 /** 操作组自定义高度的字段名（与浏览器半边 `group-height.ts` 同源）。 */
-export const GROUP_HEIGHT_CUSTOM_FIELD = 'groupHeightCustom'
+export const GROUP_HEIGHT_UNLIMITED_FIELD = 'groupHeightUnlimited'
 export const GROUP_HEIGHT_PERCENT_FIELD = 'groupHeightPercent'
 export const GROUP_HEIGHT_HISTORY_FIELD = 'groupHeightHistory'
 
@@ -111,10 +111,10 @@ export interface AutoExpandSettings {
   toolCollapseTiming: ToolCollapseTiming
   /** 工具行「查看」按钮的隐藏范围。 */
   inspectButtonHideScope: InspectButtonHideScope
-  /** 操作组是否使用自定义高度。 */
-  groupHeightCustom: boolean
-  /** 自定义高度百分比；`null` = 留空 = **不设上限**。 */
-  groupHeightPercent: number | null
+  /** 操作组是否**不限制**高度。 */
+  groupHeightUnlimited: boolean
+  /** 高度百分比；100 = 官方默认，**逐像素相同**。 */
+  groupHeightPercent: number
   /** 历史轮次的操作组是否也应用自定义高度。 */
   groupHeightHistory: boolean
 }
@@ -127,9 +127,8 @@ export interface Config {
   reasoningCollapseTiming: Volatile<ReasoningCollapseTiming>
   toolCollapseTiming: Volatile<ToolCollapseTiming>
   inspectButtonHideScope: Volatile<InspectButtonHideScope>
-  groupHeightCustom: Volatile<boolean>
-  /** `null` 是合法值：表示用户留空 = 不设上限。 */
-  groupHeightPercent: Volatile<number | null>
+  groupHeightUnlimited: Volatile<boolean>
+  groupHeightPercent: Volatile<number>
   groupHeightHistory: Volatile<boolean>
 }
 
@@ -151,12 +150,10 @@ export const Config = z.object({
     .default(DEFAULT_TOOL_COLLAPSE_TIMING).volatile(),
   [INSPECT_BUTTON_HIDE_SCOPE_FIELD]: z.union([...INSPECT_BUTTON_HIDE_SCOPES])
     .default(DEFAULT_INSPECT_BUTTON_HIDE_SCOPE).volatile(),
-  [GROUP_HEIGHT_CUSTOM_FIELD]: z.boolean().default(false).volatile(),
-  // ⚠️ 这个字段**不能**加 `.default()`：实测
-  // `union([z.natural(), z.const(null)]).default(100)` 会把用户存的 `null`
-  // （= 留空 = 不设上限）静默改写成 100，直接摧毁该功能的语义。
-  // 「从未设置」由 `undefined` 表达，默认值由客户端的 `DEFAULT_SETTINGS` 提供。
-  [GROUP_HEIGHT_PERCENT_FIELD]: z.union([z.natural(), z.const(null)]).volatile(),
+  [GROUP_HEIGHT_UNLIMITED_FIELD]: z.boolean().default(false).volatile(),
+  // 百分比回到普通的 `.natural().default(100)`：100 就是官方默认，逐像素相同。
+  // `.natural()` 同时挡住负数与小数（实测：`z.number()` 两者都放过）。
+  [GROUP_HEIGHT_PERCENT_FIELD]: z.natural().default(DEFAULT_GROUP_HEIGHT_PERCENT).volatile(),
   [GROUP_HEIGHT_HISTORY_FIELD]: z.boolean().default(false).volatile(),
 })
 

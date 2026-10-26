@@ -107,7 +107,7 @@ test('Host schema 字段名 === Client 字段名', () => {
     /(?:GROUP|REASONING|TOOL)_AUTO_EXPAND_FIELD\s*=\s*'([^']+)'/g,
     /(?:REASONING|TOOL)_COLLAPSE_TIMING_FIELD\s*=\s*'([^']+)'/g,
     /INSPECT_BUTTON_HIDE_SCOPE_FIELD\s*=\s*'([^']+)'/g,
-    /GROUP_HEIGHT_(?:CUSTOM|PERCENT|HISTORY)_FIELD\s*=\s*'([^']+)'/g,
+    /GROUP_HEIGHT_(?:UNLIMITED|PERCENT|HISTORY)_FIELD\s*=\s*'([^']+)'/g,
   ]
   /** 按声明顺序收集一侧源码里的全部字段名。 */
   const collectFields = (source) => fieldPatterns.flatMap(pattern =>

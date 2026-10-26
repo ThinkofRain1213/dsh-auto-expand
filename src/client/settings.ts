@@ -36,7 +36,7 @@ export const INSPECT_BUTTON_HIDE_SCOPE_FIELD = 'inspectButtonHideScope'
 // `contract-consistency` 的字段清单是靠正则匹配 `XXX_FIELD = '...'` 的，
 // re-export 不带字面量，会让这三个字段绕过「两边逐字一致」的检查。
 // 值必须与 `group-height.ts` 的同名常量相同（有一条测试守住）。
-export const GROUP_HEIGHT_CUSTOM_FIELD = 'groupHeightCustom'
+export const GROUP_HEIGHT_UNLIMITED_FIELD = 'groupHeightUnlimited'
 export const GROUP_HEIGHT_PERCENT_FIELD = 'groupHeightPercent'
 export const GROUP_HEIGHT_HISTORY_FIELD = 'groupHeightHistory'
 
@@ -48,7 +48,7 @@ export const DEFAULT_SETTINGS: AutoExpandSettings = {
   reasoningCollapseTiming: 'next-node',
   toolCollapseTiming: 'next-node',
   inspectButtonHideScope: DEFAULT_INSPECT_BUTTON_HIDE_SCOPE,
-  groupHeightCustom: false,
+  groupHeightUnlimited: false,
   groupHeightPercent: DEFAULT_GROUP_HEIGHT_PERCENT,
   groupHeightHistory: false,
 }
@@ -64,10 +64,10 @@ export interface AutoExpandSettings {
   readonly toolCollapseTiming: CollapseTiming
   /** 工具行「查看」按钮的隐藏范围。 */
   readonly inspectButtonHideScope: InspectButtonHideScope
-  /** 操作组是否使用自定义高度。 */
-  readonly groupHeightCustom: boolean
-  /** 自定义高度百分比；`null` = 留空 = **不设上限**。 */
-  readonly groupHeightPercent: number | null
+  /** 操作组是否**不限制**高度。 */
+  readonly groupHeightUnlimited: boolean
+  /** 高度百分比；100 = 官方默认，**逐像素相同**。 */
+  readonly groupHeightPercent: number
   /** 历史轮次的操作组是否也应用自定义高度。 */
   readonly groupHeightHistory: boolean
 }
@@ -111,12 +111,12 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
       toolCollapseTiming: value?.toolCollapseTiming ?? DEFAULT_SETTINGS.toolCollapseTiming,
       inspectButtonHideScope:
         value?.inspectButtonHideScope ?? DEFAULT_SETTINGS.inspectButtonHideScope,
-      groupHeightCustom: value?.groupHeightCustom ?? DEFAULT_SETTINGS.groupHeightCustom,
-      // 这里**不能**用 `?? DEFAULT`：那会把用户明确清空（`null`）读成 100，
-      // 「留空 = 不设上限」这个语义就丢了。只有 `undefined`（从未设置）才回落默认。
-      groupHeightPercent: value?.groupHeightPercent === undefined
-        ? DEFAULT_SETTINGS.groupHeightPercent
-        : value.groupHeightPercent,
+      groupHeightUnlimited:
+        value?.groupHeightUnlimited ?? DEFAULT_SETTINGS.groupHeightUnlimited,
+      // 回到普通的 `??` 回落：百分比现在是纯数字（100 = 官方默认），
+      // 不再需要「区分用户清空与从未设置」那套特殊处理。
+      groupHeightPercent:
+        value?.groupHeightPercent ?? DEFAULT_SETTINGS.groupHeightPercent,
       groupHeightHistory: value?.groupHeightHistory ?? DEFAULT_SETTINGS.groupHeightHistory,
     }
   }
@@ -130,7 +130,7 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
       && next.reasoningCollapseTiming === current.reasoningCollapseTiming
       && next.toolCollapseTiming === current.toolCollapseTiming
       && next.inspectButtonHideScope === current.inspectButtonHideScope
-      && next.groupHeightCustom === current.groupHeightCustom
+      && next.groupHeightUnlimited === current.groupHeightUnlimited
       && next.groupHeightPercent === current.groupHeightPercent
       && next.groupHeightHistory === current.groupHeightHistory) return
     settingsSource.set(next)

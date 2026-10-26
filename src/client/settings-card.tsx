@@ -48,13 +48,13 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 import type {} from './contract/slot-declarations.ts'
 import {
   GROUP_AUTO_EXPAND_FIELD,
-  GROUP_HEIGHT_CUSTOM_FIELD, GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD,
+  GROUP_HEIGHT_UNLIMITED_FIELD, GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD,
   INSPECT_BUTTON_HIDE_SCOPE_FIELD,
   REASONING_AUTO_EXPAND_FIELD, REASONING_COLLAPSE_TIMING_FIELD,
   TOOL_AUTO_EXPAND_FIELD, TOOL_COLLAPSE_TIMING_FIELD,
   setAutoExpandSetting, useAutoExpandSettings,
 } from './settings.ts'
-import { normalizeDigits } from './group-height.ts'
+import { DEFAULT_GROUP_HEIGHT_PERCENT, normalizeDigits } from './group-height.ts'
 import { deriveSettingsCardState, type SelectRowState } from './settings-card-state.ts'
 import { COLLAPSE_TIMINGS, type CollapseTiming } from './collapse-timing.ts'
 import { INSPECT_BUTTON_HIDE_SCOPES, type InspectButtonHideScope } from './inspect-button-scope.ts'
@@ -199,28 +199,30 @@ function SelectRow<T extends string>({ title, description, value, options, onCha
  * @param props - 标题、描述、当前值、提交回调、锁定信息、占位符与警示文案。
  * @returns 一行设置。
  */
-function NumberRow({ title, description, value, onCommit, locked, placeholder, warning, fieldId }: {
+function NumberRow({ title, description, value, onCommit, locked, warning, fieldId, overriddenLabel, resetLabel }: {
   readonly title: string
   readonly description: string
-  /** `null` 表示不设上限。 */
-  readonly value: number | null
-  readonly onCommit: (next: number | null) => void
+  /** 当前百分比。100 = 官方默认。 */
+  readonly value: number
+  readonly onCommit: (next: number) => void
   /** 存在表示该行被上层控制：整体变灰、拒绝输入、描述已换成控制者说明。 */
   readonly locked?: { readonly hint: string }
-  /** 空值时框内的灰字。 */
-  readonly placeholder: string
   /** 值过小时的提示；为空表示不显示警告。 */
   readonly warning: string
   /** 官方字段要求稳定 id，用于 label 与控件的关联。 */
   readonly fieldId: string
+  /** 「已覆盖」徽章的文案。 */
+  readonly overriddenLabel: string
+  /** 「恢复默认」按钮的文案。 */
+  readonly resetLabel: string
 }) {
-  const [draft, setDraft] = useState(value === null ? '' : String(value))
+  const [draft, setDraft] = useState(String(value))
   const [focused, setFocused] = useState(false)
   // 非聚焦时跟随外部值（例如设置被重置，或 Host 回滚）。
   // 聚焦时必须保留草稿，否则用户打字打到一半会被外部值覆盖。
   useEffect(() => {
     if (focused) return
-    setDraft(value === null ? '' : String(value))
+    setDraft(String(value))
   }, [value, focused])
   const parsed = draft === '' ? null : Number(draft)
   /**
@@ -230,17 +232,19 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
    * 是因为官方 `SettingsValueField` 只有这一个提示位：它会用 `invalidLabel`
    * 替换 `hint`，并把边框染成错误色。若另造一套提示，就会与官方字段的语义打架。
    */
-  const tooSmall = !locked && parsed !== null && parsed < WARN_BELOW_PERCENT
+  const tooSmall = locked === undefined && parsed !== null && parsed < WARN_BELOW_PERCENT
+  /** 偏离默认值（100%）时显示「已覆盖 / 恢复默认」。 */
+  const overridden = value !== DEFAULT_GROUP_HEIGHT_PERCENT
   /**
    * 提交草稿。
    *
-   * 空草稿提交 `null`（= 不设上限），这是本控件的核心语义，不偷偷填回 100。
+   * **空草稿提交默认值 100**（而不是 0 或旧值）：100 就是官方默认，
+   * 「清空」因此等价于「恢复默认」，这是数字字段里最符合直觉的语义。
    *
-   * ## 为什么由外层 `<div onBlur>` 触发，而不是输入框自己的 `onBlur`
+   * ## 为什么由外层 `<div onBlurCapture>` 触发
    *
    * 官方 `SettingsValueField` 只暴露 `onEdit` / `onReset`，没有 `onBlur` 钩子。
-   * 但 React 的 `blur` 事件**不冒泡**——所以外层要用 `onBlurCapture` 才能收到
-   * 输入框失焦。这是接入官方组件时唯一需要额外处理的地方。
+   * 但 React 的 `blur` 事件**不冒泡**——所以外层要用 capture 阶段才能收到。
    *
    * ## 提交后必须把草稿对齐到权威值
    *
@@ -255,21 +259,21 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
    * 因此这里显式把草稿写回 `value` 的规范形式。
    */
   const commit = (): void => {
-    const next = draft === '' ? null : Number(draft)
+    const next = draft === '' ? DEFAULT_GROUP_HEIGHT_PERCENT : Number(draft)
     // 无论是否真的写 Host，草稿都先规范化（处理 "007"、前后空格等）。
-    setDraft(next === null ? '' : String(next))
+    setDraft(String(next))
     if (next === value) return
     onCommit(next)
   }
   return (
     /* 外层只负责捕获焦点事件（官方 `SettingsValueField` 没有暴露 `onFocus` /
         `onBlur`），**不能带任何纵向 padding** —— 那个 div 内部的官方组件自己
-        已经有 `.field { padding: 12px 0 }`，再包一层带 padding 的容器会让这一行
-        的上下留白比其它行多一倍（24px vs 12px），肉眼立刻看出这一格是错的。
+       已经有 `.field { padding: 12px 0 }`，再包一层带 padding 的容器会让这一行
+       的上下留白比其它行多一倍（24px vs 12px），肉眼立刻看出这一格是错的。
 
-        锁定时加 `.fieldGated`：官方组件只把 `disabled` 传给 `<input>`
-        （`fields.module.css` 的 `.input:disabled` 只改文字色），label 与 hint
-        不变灰。但本卡片里其它行被锁时是整行变灰的（`.gated`），两类行必须一致。 */
+       锁定时加 `.fieldGated`：官方组件只把 `disabled` 传给 `<input>`
+       （`fields.module.css` 的 `.input:disabled` 只改文字色），label 与 hint
+       不变灰。但本卡片里其它行被锁时是整行变灰的（`.gated`），两类行必须一致。 */
     <div
       className={locked === undefined ? css.fieldSlot : `${css.fieldSlot} ${css.fieldGated}`}
       onFocusCapture={() => { setFocused(true) }}
@@ -283,31 +287,33 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
         hint={description}
         text={draft}
         invalid={tooSmall}
-        overridden={false}
-        overriddenLabel=""
-        resetLabel=""
+        /* 官方字段的「已覆盖 / 恢复默认」——偏离默认值时才出现。
+           走官方通道而不是自己造按钮：几何、hover、disabled 全部由组件提供。 */
+        overridden={overridden}
+        overriddenLabel={overriddenLabel}
+        /* 点「恢复默认」把值写回 100，并立刻对齐草稿。 */
+        onReset={() => {
+          setDraft(String(DEFAULT_GROUP_HEIGHT_PERCENT))
+          onCommit(DEFAULT_GROUP_HEIGHT_PERCENT)
+        }}
+        resetLabel={resetLabel}
         invalidLabel={warning}
         numeric
         disabled={locked !== undefined}
-        placeholder={placeholder}
         {...locked === undefined ? {} : { title: locked.hint }}
         onEdit={(text) => {
           // 强过滤：只留数字。负号、字母因此物理上不可输入。
           //
           // 全角数字必须**先归一化再过滤**：中文输入法打出的 `１５０`
-          // 不符合 `\d`，直接过滤会得到空串，而空串在失焦时被解释为
-          // 「用户主动清空」→ 写入 `null`（不设上限）。那比「打不进去」
-          // 严重一档：用户以为设了 150%，实际把组设成撑满屏幕。
+          // 不符合 `\d`，直接过滤会得到空串，而空串在失焦时会被回填成
+          // 默认值 100 —— 用户以为设了 150%，实际把设置悄悄重置了。
           setDraft(normalizeDigits(text))
         }}
-        onReset={() => { setDraft('') }}
       />
     </div>
   )
 }
 
-/**
- * 渲染九行设置。
 /**
  * 一个一级分组：`<h3>` 标题 + 组内各行。
  *
@@ -452,46 +458,45 @@ export function SettingsCard({ t }: SettingsCardProps) {
       </Section>
 
       <Section id={`${sectionId}-height`} title={t('groupHeight' as SettingsKey)} divider>
-        {/* 高度开关永不锁死（它自己能独立决策）；大段开关关闭时它仍可编辑，
-            只是用描述说明「暂不生效」——与第六行同一套做法。 */}
+        {/* 「不限制高度」永不锁死（高度组里唯一能独立决策的控件）；大段开关关闭时
+            它仍可编辑，只是用描述说明「暂不生效」——与第六行同一套做法。 */}
         <SwitchRow
-          title={t('heightCustomTitle' as SettingsKey)}
+          title={t('heightUnlimitedTitle' as SettingsKey)}
           description={state.groupHeightIdle
             ? t('heightIdle' as SettingsKey)
-            : t('heightCustomDesc' as SettingsKey)}
-          checked={state.heightCustom.checked}
-          onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_CUSTOM_FIELD, next) }}
+            : t('heightUnlimitedDesc' as SettingsKey)}
+          checked={state.heightUnlimited.checked}
+          onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_UNLIMITED_FIELD, next) }}
         />
         {/* 后两项并排：左侧纵向字段（标题/警告 + 满宽框 + 描述），
-            右侧横向开关行。窄屏时 grid 自动堆成一列。 */}
+            右侧横向开关行。窄屏时 grid 自动堆成一列。
+
+            百分比框**只被「不限制高度」锁**：无上限时那个数字没有意义。
+            历史开关**不受任何门控**——它表达应用范围，与高度值正交。 */}
         <div className={css.columns}>
           <div className={css.column}>
             <NumberRow
               title={t('heightPercentTitle' as SettingsKey)}
               fieldId={`${sectionId}-height-percent`}
-              description={state.heightPercent.gate === 'heightCustom'
-                ? t('gatedByHeightCustom' as SettingsKey)
+              description={state.heightPercent.gate === 'unlimited'
+                ? t('gatedByHeightUnlimited' as SettingsKey)
                 : t('heightPercentDesc' as SettingsKey)}
               value={settings.groupHeightPercent}
-              placeholder={t('heightPercentPlaceholder' as SettingsKey)}
               warning={t('heightPercentTooSmall' as SettingsKey)}
+              overriddenLabel={t('heightOverridden' as SettingsKey)}
+              resetLabel={t('heightReset' as SettingsKey)}
               onCommit={next => { void setAutoExpandSetting(GROUP_HEIGHT_PERCENT_FIELD, next) }}
               {...state.heightPercent.locked
-                ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } }
+                ? { locked: { hint: t('gatedByHeightUnlimited' as SettingsKey) } }
                 : {}}
             />
           </div>
           <div className={css.column}>
             <SwitchRow
               title={t('heightHistoryTitle' as SettingsKey)}
-              description={state.heightHistory.gate === 'heightCustom'
-                ? t('gatedByHeightCustom' as SettingsKey)
-                : t('heightHistoryDesc' as SettingsKey)}
+              description={t('heightHistoryDesc' as SettingsKey)}
               checked={state.heightHistory.checked}
               onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_HISTORY_FIELD, next) }}
-              {...state.heightHistory.locked
-                ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } }
-                : {}}
             />
           </div>
         </div>

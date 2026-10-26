@@ -20,16 +20,16 @@ import { deriveSettingsCardState } from '../src/client/settings-card-state.ts'
  * @param {boolean} groupAutoExpand - 大段开关。
  * @param {boolean} reasoningAutoExpand - 思考行开关。
  * @param {boolean} toolAutoExpand - 工具行开关；默认与思考行同开。
- * @param {object} [height] - 高度两项；省略时为 `{ custom: false, history: false }`。
+ * @param {object} [height] - 高度两项；省略时为 `{ unlimited: false, history: false }`。
  * @returns {object} 五个开关的值。
  */
 function values(groupAutoExpand, reasoningAutoExpand, toolAutoExpand = true,
-  height = { custom: false, history: false }) {
+  height = { unlimited: false, history: false }) {
   return {
     groupAutoExpand,
     reasoningAutoExpand,
     toolAutoExpand,
-    groupHeightCustom: height.custom,
+    groupHeightUnlimited: height.unlimited,
     groupHeightHistory: height.history,
   }
 }
@@ -204,59 +204,61 @@ test('隐藏范围：思考开关不影响 idle', () => {
     '思考开关与工具的运行状态无关')
 })
 
-// ── 高度三行（P10）──────────────────────────────────────────────────────
+// ── 高度三行 ────────────────────────────────────────────────────────────
 
-test('高度第一行永不被锁：与大段开关无关', () => {
+test('「不限制高度」永不被锁：与大段开关无关', () => {
   for (const groupAutoExpand of [true, false]) {
     const state = deriveSettingsCardState(values(groupAutoExpand, true, true,
-      { custom: true, history: false }))
-    assert.equal(state.heightCustom.locked, false,
+      { unlimited: true, history: false }))
+    assert.equal(state.heightUnlimited.locked, false,
       `groupAutoExpand=${groupAutoExpand} 时高度第一行不应被锁`)
   }
 })
 
-test('高度开关关闭：数字行与历史行都被 heightCustom 锁住', () => {
+test('「不限制高度」开启：百分比框被 unlimited 锁住', () => {
   const state = deriveSettingsCardState(values(true, true, true,
-    { custom: false, history: false }))
+    { unlimited: true, history: false }))
   assert.equal(state.heightPercent.locked, true)
-  assert.equal(state.heightPercent.gate, 'heightCustom')
-  assert.equal(state.heightHistory.locked, true)
-  assert.equal(state.heightHistory.gate, 'heightCustom')
+  assert.equal(state.heightPercent.gate, 'unlimited')
 })
 
-test('高度开关开启：数字行与历史行解锁', () => {
+test('「不限制高度」关闭：百分比框解锁', () => {
   const state = deriveSettingsCardState(values(true, true, true,
-    { custom: true, history: false }))
+    { unlimited: false, history: false }))
   assert.equal(state.heightPercent.locked, false)
   assert.equal(state.heightPercent.gate, 'none')
-  assert.equal(state.heightHistory.locked, false)
+})
+
+test('历史开关不受任何门控：无论是否不限制都可操作', () => {
+  for (const unlimited of [true, false]) {
+    for (const groupAutoExpand of [true, false]) {
+      const state = deriveSettingsCardState(values(groupAutoExpand, true, true,
+        { unlimited, history: false }))
+      assert.equal(state.heightHistory.locked, false,
+        `unlimited=${unlimited} groupAutoExpand=${groupAutoExpand} 时历史开关不应被锁`)
+      assert.equal(state.heightHistory.gate, 'none')
+    }
+  }
 })
 
 test('大段自动展开关闭时高度设置标记为不生效，但行不锁', () => {
   const state = deriveSettingsCardState(values(false, true, true,
-    { custom: true, history: false }))
+    { unlimited: false, history: false }))
   assert.equal(state.groupHeightIdle, true, '应标记不生效')
-  assert.equal(state.heightCustom.locked, false, '行仍可操作')
-  assert.equal(state.heightPercent.locked, false, '数字行不被大段开关锁')
+  assert.equal(state.heightUnlimited.locked, false, '行仍可操作')
+  assert.equal(state.heightPercent.locked, false, '百分比框不被大段开关锁')
 })
 
-test('大段与高度开关都开：高度设置生效', () => {
+test('大段开且非无上限：高度设置生效', () => {
   const state = deriveSettingsCardState(values(true, true, true,
-    { custom: true, history: false }))
+    { unlimited: false, history: false }))
   assert.equal(state.groupHeightIdle, false)
 })
 
-test('高度开关关闭时，不因大段开关关闭而改用 workGroup 门控', () => {
-  // 优先级：heightCustom 是最近的控制者，应优先于 workGroup
-  const state = deriveSettingsCardState(values(false, true, true,
-    { custom: false, history: false }))
-  assert.equal(state.heightPercent.gate, 'heightCustom')
-})
-
-test('高度第三行的 checked 来自状态推导，不是直接读设置', () => {
-  const off = deriveSettingsCardState(values(true, true, true, { custom: true, history: false }))
+test('高度历史开关的 checked 来自状态推导，不是直接读设置', () => {
+  const off = deriveSettingsCardState(values(true, true, true, { unlimited: false, history: false }))
   assert.equal(off.heightHistory.checked, false)
-  const on = deriveSettingsCardState(values(true, true, true, { custom: true, history: true }))
+  const on = deriveSettingsCardState(values(true, true, true, { unlimited: false, history: true }))
   assert.equal(on.heightHistory.checked, true,
     '若渲染层直接从 settings 取值，这个字段就成了悬空数据源')
 })

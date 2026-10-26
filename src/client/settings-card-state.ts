@@ -21,8 +21,8 @@ export interface SwitchValues {
   readonly groupAutoExpand: boolean
   readonly reasoningAutoExpand: boolean
   readonly toolAutoExpand: boolean
-  /** 高度第一行：是否启用自定义高度。**永不被锁。** */
-  readonly groupHeightCustom: boolean
+  /** 高度第一行：是否**不限制**高度。**永不被锁。** */
+  readonly groupHeightUnlimited: boolean
   /** 高度第三行：历史轮次是否也应用。 */
   readonly groupHeightHistory: boolean
 }
@@ -46,9 +46,8 @@ export interface SwitchRowState {
 export interface SelectRowState {
   /** 是否拒绝输入并变灰。 */
   readonly locked: boolean
-  /** 锁定原因：`none` 未锁 / `workGroup` 由操作组开关锁 / `own` 由本层开关锁 /
-   *  `heightCustom` 由高度第一行锁。 */
-  readonly gate: 'none' | 'workGroup' | 'own' | 'heightCustom'
+  /** 锁定原因：`none` 未锁 / `workGroup` 由操作组开关锁 / `own` 由本层开关锁。 */
+  readonly gate: 'none' | 'workGroup' | 'own'
 }
 
 /**
@@ -56,10 +55,12 @@ export interface SelectRowState {
  *
  * 与 {@link SelectRowState} 同形，但单独命名：数字行的控件是 `<input>` 而不是
  * 下拉，将来若两者的锁定规则分化，名字已经分开了。
+ *
+ * `unlimited` 是高度百分比框唯一的锁定来源：无上限时那个数字没有意义。
  */
 export interface NumberRowState {
   readonly locked: boolean
-  readonly gate: 'none' | 'heightCustom'
+  readonly gate: 'none' | 'unlimited'
 }
 
 /**
@@ -72,7 +73,7 @@ export interface NumberRowState {
 export interface GatedSwitchRowState {
   readonly checked: boolean
   readonly locked: boolean
-  readonly gate: 'none' | 'heightCustom'
+  readonly gate: 'none'
 }
 
 /** 整张卡片的九行状态。 */
@@ -93,16 +94,23 @@ export interface SettingsCardState {
    * 这不是门控——该行照样可以操作，只是说明里要点名原因。
    */
   readonly inspectScopeIdle: 'none' | 'workGroup' | 'own'
-  /** 高度第一行（开关）。**永不锁死**，与操作组开关同级。 */
-  readonly heightCustom: SwitchRowState
-  /** 高度第二行（数字输入），由高度第一行锁。 */
+  /**
+   * 高度第一行（开关「不限制高度」）。**永不锁死**，与操作组开关同级。
+   *
+   * 它是高度这一组里唯一能独立决策的控件，因此没有任何上层控制者。
+   */
+  readonly heightUnlimited: SwitchRowState
+  /** 高度第二行（百分比输入框），**只被「不限制高度」锁**。 */
   readonly heightPercent: NumberRowState
   /**
-   * 高度第三行（**开关**，不是下拉），由高度第一行锁。
+   * 高度第三行（**开关**，不是下拉）。**不受任何门控。**
    *
    * 用 {@link GatedSwitchRowState} 而不是 `SelectRowState`：后者是下拉行的类型，
    * 用在开关上会让后来者以为这一行是下拉。`checked` 也在这里给出，
    * 避免「值从 settings 取、状态从这里取」的双来源。
+   *
+   * `gate` 恒为 `'none'`：它表达的是「高度设置的应用范围」，与「高度值是多少」
+   * 正交 —— 无论用户选了百分比还是无上限，都可以决定是否延伸到历史组。
    */
   readonly heightHistory: GatedSwitchRowState
   /**
@@ -168,30 +176,30 @@ export function deriveSettingsCardState(values: SwitchValues): SettingsCardState
     inspectScopeIdle: !values.groupAutoExpand ? 'workGroup'
       : !values.toolAutoExpand ? 'own'
         : 'none',
-    // 高度第一行：与操作组开关同级——**自己能独立决策，永不被锁**。
-    //
-    // 理由：它保存的是用户偏好（「我想要 150%」这个意图），即使当前大段开关
-    // 关闭也仍然有效，关掉再打开时应原样回来。强行灰化会让用户以为设置丢了。
+    // 高度第一行（「不限制高度」开关）：高度组里唯一能独立决策的控件，
+    // **永不被锁**——即使大段开关关闭，用户「我想要无上限」的意图仍然有效，
+    // 关掉再打开时应原样回来。强行灰化会让用户以为设置丢了。
     // 大段关闭时高度确实不生效，但那由 `groupHeightIdle` 用文案说明，不锁行
     // ——与第六行（隐藏查看按钮）同一套做法。
-    heightCustom: {
-      checked: values.groupHeightCustom,
+    heightUnlimited: {
+      checked: values.groupHeightUnlimited,
       locked: false,
       gatedText: false,
     },
-    // 后两行只被高度第一行锁。注意这里**不复用** `timingGate()`：那个函数先看
-    // 大段开关再看本层，而高度三行与大段开关的锁定关系是「不锁、只说明」，
-    // 用它会错误地把 `workGroup` 报成 gate。
-    heightPercent: values.groupHeightCustom
-      ? { locked: false, gate: 'none' }
-      : { locked: true, gate: 'heightCustom' },
+    // 百分比输入框**只被「不限制高度」锁**：无上限时那个数字没有意义。
+    // 注意这里**不复用** `timingGate()`：那个函数先看大段开关再看本层，
+    // 而高度行与大段开关的关系是「不锁、只说明」，用它会错误报成 `workGroup`。
+    heightPercent: values.groupHeightUnlimited
+      ? { locked: true, gate: 'unlimited' }
+      : { locked: false, gate: 'none' },
+    // 历史开关**不受任何门控**：它表达的是「应用范围」，与「高度值是多少」正交。
+    // 无论用户选百分比还是无上限，都可以决定是否延伸到历史组。
     // `checked` 从这里给出（读 `values.groupHeightHistory`），而不是让渲染层
-    // 直接从 settings 取 —— 那样这一行就有两个数据来源，`SwitchValues` 里的
-    // `groupHeightHistory` 会变成一个没人读的悬空字段。
+    // 直接从 settings 取 —— 那样这一行就有两个数据来源。
     heightHistory: {
       checked: values.groupHeightHistory,
-      locked: !values.groupHeightCustom,
-      gate: values.groupHeightCustom ? 'none' : 'heightCustom',
+      locked: false,
+      gate: 'none',
     },
     groupHeightIdle: !values.groupAutoExpand,
   }

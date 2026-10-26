@@ -22,25 +22,33 @@
  * ```
  *
  * 本模块**消费** `capped`，不自己推导。官方 detailed 模式下 `capped` 恒假，
- * 若这里重算就会给本应无上限的组强加上限（见 Spec §6.3）。
+ * 若这里重算就会给本应无上限的组强加上限。
  *
- * ## 「不设上限」为什么用 `null` 而不是 0
+ * ## 两个维度，不是三个状态
  *
- * `0` 在百分比语境里天然读作「最小」，用它表示「最大」需要用户反着理解，
- * 而且会让曲线在 0 处断裂（`f(0) = ∞` 但 `f(1) = 4px`）。
+ * 高度只有两个**本质不同**的状态：
  *
- * 改为**留空 = 不设上限**之后，百分比曲线连续，控件里不存在任何特例值。
- * `0` 恢复成普通的「过小值」，由 UI 的橙色警告劝阻。
+ * | 状态 | 含义 |
+ * |---|---|
+ * | 有上限 | `min(N*4px, N*0.5vh)` |
+ * | 无上限 | 内容随对话滚动 |
  *
- * ⚠️ Host schema 里这个字段**不能加 `.default()`**：实测
- * `union([z.natural(), z.const(null)]).default(100)` 会把用户存的 `null`
- * 静默改写成 `100`，直接摧毁「留空 = 无上限」这个语义。
+ * 「官方默认」不是第三种状态 —— 它是「有上限」在 `N = 100` 时的特例：
+ * `min(100*4px, 100*0.5vh)` 恰好等于官方的 `min(400px, 50vh)`，逐像素相同。
+ *
+ * 因此 `percent === 100` 时返回 `null`（不写内联样式），完全交给 CSS ——
+ * 「100% 等于官方默认」因此是**字面意义上**的等价，不是一个还需要特殊处理的档位。
+ *
+ * ⚠️ 早先的版本用 `percent: number | null`、以「留空」表示无上限。那让
+ * schema 不能加 `.default()`、`read()` 不能写 `??`、类型四处传染 `null` ——
+ * 都是**用一个特殊值去补偿缺失的状态槽位**的代价。现在无上限由独立布尔表达，
+ * 这些代价全部消失。
  */
 
-/** 是否启用自定义高度。 */
-export const GROUP_HEIGHT_CUSTOM_FIELD = 'groupHeightCustom'
+/** 是否不限制高度（无上限）。 */
+export const GROUP_HEIGHT_UNLIMITED_FIELD = 'groupHeightUnlimited'
 
-/** 高度百分比。`null` = 留空 = 不设上限。 */
+/** 高度百分比。100 = 官方默认，逐像素相同。 */
 export const GROUP_HEIGHT_PERCENT_FIELD = 'groupHeightPercent'
 
 /** 历史轮次是否也应用自定义高度。 */
@@ -54,9 +62,9 @@ export const DEFAULT_GROUP_HEIGHT_PERCENT = 100
 /** {@link groupHeight} 的输入：组状态与当前设置。 */
 export interface GroupHeightInput {
   /**
-   * 卡片第一行的开关（`groupAutoExpand`）。
+   * 卡片里的「自动展开操作组」开关（`groupAutoExpand`）。
    *
-   * 关闭时「自动展开」不存在，高度设置没有可作用的对象 —— Spec §6.5 的第 0 条。
+   * 关闭时「自动展开」不存在，高度设置没有可作用的对象。
    */
   readonly groupAutoExpand: boolean
   /**
@@ -68,12 +76,12 @@ export interface GroupHeightInput {
   readonly capped: boolean
   /** 该组是否属于「当前正在运行」，即 `closed === false`。 */
   readonly isCurrent: boolean
-  /** 是否启用自定义高度。 */
-  readonly custom: boolean
+  /** 是否不限制高度。 */
+  readonly unlimited: boolean
   /** 历史轮次是否也应用。 */
   readonly history: boolean
-  /** 高度百分比；`null` = 留空 = 不设上限。 */
-  readonly percent: number | null
+  /** 高度百分比；100 = 官方默认。 */
+  readonly percent: number
 }
 
 /** 应贴到 body 上的内联样式。 */
@@ -92,16 +100,19 @@ export interface GroupHeightStyle {
 /**
  * 算出某一组 body 应有的高度。
  *
- * 规则按顺序命中，先命中先返回（Spec §6.5 + §6.2）：
+ * 规则按顺序命中，先命中先返回：
  *
  * | # | 条件 | 结果 |
  * |---|---|---|
  * | 0 | `!groupAutoExpand` | `null`（整个功能不生效） |
  * | 1 | `!capped` | `null`（官方本就不设上限） |
- * | 2 | `!custom` | `null`（走官方） |
- * | 3 | `!isCurrent && !history` | `null`（历史组不应用） |
- * | 4 | `percent === null` | 无上限，成对给 `overflow-y` |
+ * | 2 | `!isCurrent && !history` | `null`（历史组不应用） |
+ * | 3 | `unlimited` | 无上限，成对给 `overflow-y` |
+ * | 4 | `percent === 100` | `null`（与官方逐像素相同，不干预） |
  * | 5 | 其他 | `min(percent*4 px, percent*0.5 vh)` |
+ *
+ * 第 4 条是「100% = 官方默认」的实现：不写任何内联样式，让 `.body` 的
+ * `min(400px, 50vh)` 原样生效。这样默认状态与未安装插件**完全一致**。
  *
  * @param input - 组状态与当前设置。
  * @returns 内联样式；`null` 表示不写 style，交给 CSS class。
@@ -109,10 +120,10 @@ export interface GroupHeightStyle {
 export function groupHeight(input: GroupHeightInput): GroupHeightStyle | null {
   if (!input.groupAutoExpand) return null
   if (!input.capped) return null
-  if (!input.custom) return null
   if (!input.isCurrent && !input.history) return null
-  // 留空 = 用户明确选择不设上限。
-  if (input.percent === null) return { maxHeight: 'none', overflowY: 'visible' }
+  if (input.unlimited) return { maxHeight: 'none', overflowY: 'visible' }
+  // 100% 就是官方默认，不写内联 —— 让 CSS 的 min(400px, 50vh) 原样生效。
+  if (input.percent === DEFAULT_GROUP_HEIGHT_PERCENT) return null
   return { maxHeight: `min(${input.percent * 4}px, ${input.percent * 0.5}vh)` }
 }
 
@@ -122,9 +133,8 @@ export function groupHeight(input: GroupHeightInput): GroupHeightStyle | null {
  * 两步，顺序不能反：
  *
  * 1. **全角数字转半角**。中文输入法打出的 `１５０` 属于 `U+FF10..U+FF19`，
- *    不匹配 `\d`。若直接过滤，`１５０` 会变成空串，而空串在失焦时表示
- *    「用户主动清空」→ 写入 `null`（不设上限）——用户以为设了 150%，
- *    实际把操作组设成撑满屏幕。这个后果比「打不进去」严重一档。
+ *    不匹配 `\d`。若直接过滤，`１５０` 会变成空串，而空串在失焦时会被
+ *    回填成默认值 —— 用户以为设了 150%，实际把设置悄悄重置了。
  * 2. **只保留 ASCII 数字**。负号、字母、小数点、逗号都在这一步丢掉。
  *
  * 小数点被丢掉是有意的：Host 的 `z.natural()` 拒绝小数，让 UI 先挡下来，

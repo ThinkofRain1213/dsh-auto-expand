@@ -318,7 +318,7 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
     groupAutoExpand: settings.groupAutoExpand,
     capped,
     isCurrent: closed === false,
-    custom: settings.groupHeightCustom,
+    unlimited: settings.groupHeightUnlimited,
     history: settings.groupHeightHistory,
     percent: settings.groupHeightPercent,
   })

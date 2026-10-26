@@ -4,7 +4,8 @@
 > 依据：`DESIGN.md`（第 1473-1560 行）+ `src/client/settings-card.tsx`（831 行）+ `src/client/settings-card.module.css`（774 行）
 > 目标 DSH：0.2.1-rc.2
 >
-> ⚠️ **视觉数值以 [UI-SPEC.md](UI-SPEC.md) 为准。** 那份是 2026-10-27 按当前实现重写的：
+> ⚠️ **视觉数值已过时，以通用规范为准。** 跨项目通用的插件设置页 UI 规范在
+> `C:\Users\Think\Desktop\项目\DSH-插件设置页UI规范.md`（2026-10-27 整理）：
 > 行内边距 16px → 12px（对齐官方字段）、新增一级分组标题与分隔线、
 > 输入框改用官方 `SettingsValueField`。本文档保留的槽位与渲染位置那部分仍然有效。
 

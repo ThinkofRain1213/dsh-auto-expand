@@ -21,17 +21,17 @@
 /** 上游包与其源码根（相对 checkout 根目录）。 */
 export const PACKAGES = {
   '@deepseek-ai/dsh-client-ui-chat': {
-    version: '0.2.1-rc.2',
+    version: '0.2.1-rc.3',
     sourceRoot: 'packages/client/ui-chat/src/client',
   },
   '@deepseek-ai/dsh-client-ui-conversation': {
-    version: '0.2.1-rc.2',
+    version: '0.2.1-rc.3',
     sourceRoot: 'packages/client/ui-conversation/src/client',
   },
 }
 
 /** 记录的上游 commit（= 克隆时对照的 checkout HEAD）。 */
-export const UPSTREAM_COMMIT = '687f282e86'
+export const UPSTREAM_COMMIT = '1f81c047fc'
 
 /**
  * 每个克隆文件的上游出处。

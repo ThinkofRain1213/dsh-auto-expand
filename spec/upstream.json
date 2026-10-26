@@ -1,16 +1,16 @@
 {
   "$comment": "由 `pnpm drift:record` 生成。记录每个克隆文件在上游 checkout 里的内容哈希。",
-  "commit": "687f282e86",
-  "generatedAt": "2026-10-21T17:26:18.908Z",
+  "commit": "1f81c047fc",
+  "generatedAt": "2026-10-26T10:58:07.401Z",
   "packages": {
     "@deepseek-ai/dsh-client-ui-chat": {
-      "version": "0.2.1-rc.2",
-      "recorded": "0.2.1-rc.2",
+      "version": "0.2.1-rc.3",
+      "recorded": "0.2.1-rc.3",
       "sourceRoot": "packages/client/ui-chat/src/client"
     },
     "@deepseek-ai/dsh-client-ui-conversation": {
-      "version": "0.2.1-rc.2",
-      "recorded": "0.2.1-rc.2",
+      "version": "0.2.1-rc.3",
+      "recorded": "0.2.1-rc.3",
       "sourceRoot": "packages/client/ui-conversation/src/client"
     }
   },
@@ -171,7 +171,7 @@
     },
     {
       "local": "src/client/flow/message-chrome.ts",
-      "kind": "verbatim",
+      "kind": "partial",
       "sources": [
         {
           "source": "ui-chat:chat/message-chrome.ts",
@@ -204,7 +204,7 @@
     },
     {
       "local": "src/client/flow/PendingIconActions.tsx",
-      "kind": "verbatim",
+      "kind": "partial",
       "sources": [
         {
           "source": "ui-chat:chat/MessageIconActions.tsx",

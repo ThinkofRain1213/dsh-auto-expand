@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/RunningWhaleTail.tsx`（19 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * 逐字保留。APNG 资源由构建期插件转成 data URL（见 tsdown.config.ts）。
  */

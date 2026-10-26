@@ -2,7 +2,8 @@
 
 > 日期：2026-10-23（§1.2.1 于同日第二次查证后修订：思考与工具统一为四个时机）
 > 状态：**已实施**（P8）。用户授权落盘。
-> 上游：`@deepseek-ai/dsh-client-ui-chat` / `dsh-client-ui-tool` @0.2.1-rc.2，commit `687f282e86`
+> 上游：`@deepseek-ai/dsh-client-ui-chat` / `dsh-client-ui-tool` @0.2.1-rc.3，commit `1f81c047fc`
+> （rc.2 → rc.3 已核对：本插件克隆的 29 个上游来源内容零漂移）
 
 ---
 

@@ -2,7 +2,7 @@
  * 克隆自 `chat/MessageItem.module.css`（`.userRow`）与
  * `chat/MessageIconActions.module.css`（图标行样式）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * 只保留 pending bubble 与它的 IconActions 行用到的类。
  */

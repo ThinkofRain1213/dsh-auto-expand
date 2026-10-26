@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/use-calendar-day.ts`（25 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * 组件本地的日历日跳动：memo 化的消息行在跨午夜时 props 保持稳定，
  * 因此 IconActions 的时钟需要一个本地日座位，在下一个本地午夜重新触发。

@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/MessageItem.tsx:163-295`（`UserStyleBubble` 与两个 pending bubble）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * `AutoFlow` 只用到 `PendingSteeringBubble` 与 `PendingSubmissionBubble`。
  * 这两个 bubble 只在"用户刚提交、durable 消息尚未到达"的短暂窗口渲染，

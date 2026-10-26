@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/MessageIconActions.tsx`（115 行）中 pending bubble 用到的部分。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * pending bubble 只用到"时钟 + 复制"这一条 actions 行，不带 branch / usage。
  * 因此这里只保留 `text` / `time` / `clock` / `className` 四个输入，去掉

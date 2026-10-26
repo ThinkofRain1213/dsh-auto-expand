@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/AssistantNodeView.tsx`（51 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * 修改点（一处）：
  *   - 渲染 `AutoAssistantMarkdown` 而非官方 `AssistantMarkdown`。

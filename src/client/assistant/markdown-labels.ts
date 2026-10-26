@@ -1,7 +1,7 @@
 /**
  * 克隆自 `markdown-labels.ts`（16 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * 逐字保留。为 Cordis-free 的 Markdown 原语构建本地化文案。
  */

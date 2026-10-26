@@ -188,9 +188,10 @@ DSH 默认把工作过程折叠成三层：
 
 ## 目标版本
 
-- DSH `0.2.1-rc.2`（`engines.dsh` 限定在 `0.2.1`）
+- DSH `0.2.1-rc.3`（`engines.dsh` 为 `>=0.2.1-rc.2 <0.2.2`，rc.2 仍可用）
 - 依赖 `@deepseek-ai/dsh-client-ui-chat` 与 `@deepseek-ai/dsh-client-ui-tool`
   的内部渲染结构；上游若改动需同步克隆组件（见各文件头部的上游版本记录）
+- 升级上游后先跑 `pnpm drift`：它逐文件比对克隆来源，0 漂移才能放心升级
 
 ## 开发
 

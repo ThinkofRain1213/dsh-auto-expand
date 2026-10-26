@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/ChatNodeSeat.tsx`（174 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * 修改点（仅一处）：
  *   - 渲染 `AutoGroupSeat` 而非官方 `ChatGroupSeat`（`AutoFlow` 中分发）。

@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/message-chrome.ts`（100 行）中的时间与时长工具。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * 只保留 pending bubble 的时钟与运行时长需要的部分。
  */

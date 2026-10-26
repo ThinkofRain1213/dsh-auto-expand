@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/use-scroll-follow.ts`（182 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * 逐字保留，仅去掉对 `useState` 之外无关内容的依赖。这是 process group
  * 内部滚动跟随的内核，任何简化都会改变手感（边缘渐变、scrollend 处理、

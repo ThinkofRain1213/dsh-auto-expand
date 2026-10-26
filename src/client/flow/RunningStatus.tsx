@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/RunningStatus.tsx`（41 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.2，commit 687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
  * 逐字保留（含 `RunningWhaleTail`），仅改 import 路径。这是 flow 尾部的
  * 运行指示器，与折叠策略无关，必须与官方完全一致。

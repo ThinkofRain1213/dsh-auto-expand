@@ -385,7 +385,11 @@ function Section({ id, title, divider, children }: {
    *
    * 线是**独立元素**而不是 `<section>` 的 `border-top`：`border` 属于某一个块，
    * 会让它的 padding 不对称，线就贴到上方那组的内容上（详见 CSS 的 `.rule` 注释）。
-   * 独立元素落在两组各自的 `padding: 16px 0` 之间，天然居中。
+   *
+   * 线自身 `margin: 0`，位置由两侧决定：上侧是上一行的 `padding-bottom: 12px`，
+   * 下侧是本组标题的 `margin-top: 12px`（由 CSS 的 `.rule + .section > .heading`
+   * 提供）。**那个相邻选择器依赖本组件把 `.rule` 放在 `<section>` 之前**，
+   * 改结构时要一并检查。
    */
   readonly divider: boolean
   readonly children: ReactNode

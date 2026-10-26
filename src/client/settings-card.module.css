@@ -133,26 +133,24 @@
 /* ── 一级分组 ──────────────────────────────────────────────────────────── */
 
 /*
- * 一个分组。
+ * 一个分组。**不持有任何纵向留白。**
  *
- * ## 为什么纵向往外让给「行自己」和「分隔线」
+ * ## 为什么纵向往外让给「行」和「标题」
  *
  * 官方 `SubagentCard` 的 `.section` 是 `padding: 16px 0`，那是因为它里面全是
  * `SettingsValueField`（自带 `padding: 12px 0`）—— 官方靠这两层叠加出间距。
  *
  * 本卡片混用了两种行：横向 `.row`（自带 `12px 0`）与官方纵向字段（自带 `12px 0`）。
- * 若 `.section` 再加 `16px`，就会变成「行 12 + 分节 16」的叠加，而**分隔线两侧
- * 的构成不同**：上侧是「行 12 + 分节 16」= 28，下侧是「分节 16 + 标题 0」= 16，
- * 差了一倍 —— 这是肉眼最容易看出的一种不整齐。
+ * 若 `.section` 再加纵向 padding，就会变成「行 12 + 分节 16」的叠加，而**分隔线
+ * 两侧的构成不同**：上侧是「行 12 + 分节 16」，下侧是「分节 16 + 标题 0」——
+ * 差了一倍，这是肉眼最容易看出的一种不整齐。
  *
- * 因此这里**去掉纵向 padding**，纵向留白全部交给两个东西：
- * 1. 每行自己的 `padding: 12px 0`（行与行之间因此是 24px）；
- * 2. `.rule` 自己的 `margin: 16px 0`（分隔线两侧各 16px，且**对称**）。
+ * 因此纵向留白全部交给：
+ * 1. 每行自己的 `padding: 12px 0`（行与行之间 = 24px）；
+ * 2. 标题自己的 `margin-top: 12px`（只对「线后面那一组」生效，见 `.rule + .section`）；
+ * 3. `.rule` 的 `margin: 0`（线本身不占空间，位置由两侧元素决定）。
  *
- * 这样「上条内容→线」= 12（行下 padding）+ 16（线 margin）= 28px，
- * 「线→下组标题」= 16（线 margin）+ 0（标题 margin）= 16px……
- *
- * ⚠️ 这两个仍然不等。见 `.rule` 上方的补偿说明。
+ * 结果：行→线 12px、线→标题 12px，**对称**，且 `.rule` 与 DPG 的写法完全一致。
  */
 .section {
   min-width: 0;
@@ -162,26 +160,26 @@
 /*
  * 两个分组之间的边界线。
  *
- * ## 为什么需要非对称 margin
+ * ## `margin: 0` 是刻意的
  *
- * 分隔线两侧的**内容构成天然不同**：
+ * 线本身**不占纵向空间**，它的位置完全由两侧元素决定：
  *
- * | 位置 | 上侧 | 下侧 |
+ * | 侧 | 紧邻元素 | 它贡献的空白 |
  * |---|---|---|
- * | 紧邻线的元素 | 一行 `.row`（自带 `padding-bottom: 12px`） | 一个 `<h3>`（`margin: 0`） |
+ * | 上 | 一行 `.row` | `padding-bottom: 12px` |
+ * | 下 | 一个 `<h3>` | `margin-top: 12px`（见下方 `.rule + .section` 规则） |
  *
- * 所以要让「内容→线」与「线→内容」看着一样远，线的上 margin 必须比下 margin
- * **少 12px**，正好抵掉那一行的 padding-bottom。
+ * 两侧各 12px ⇒ 线天然居中，不需要任何补偿。
  *
- * 目标视觉间距 16px ⇒ `margin: 4px 0 16px`：
- * - 上侧：行 12 + 线 4 = **16px**
- * - 下侧：线 16 + 标题 0 = **16px**
+ * 这与 DPG 的 `.rule { margin: 0 }` 一致。差异只在**由谁贡献那 12px**：
+ * DPG 是「`row` 的 16px padding / `group` 的 16px padding」，
+ * 本卡片是「`row` 的 12px padding / 标题的 12px margin」——
+ * 因为本卡片的行**嵌在 `.section` 里**，`section` 一旦带 padding 就会与行的
+ * padding 叠加，两侧不再对称。
  *
- * ## 为什么不用 DPG 的 `margin: 0`
- *
- * DPG 能写 `margin: 0`，是因为它上下两个 `.group` **都有** `padding: 16px 0`
- * 且**内部没有自带 padding 的行**，两侧构成相同。本卡片不满足那个前提：
- * 行自带 padding 而标题不带。照搬 `margin: 0` 就会出现「上 28 / 下 16」。
+ * ⚠️ 早先这里写的是 `margin: 4px 0 16px`（用非对称 margin 把两侧补成各 16px）。
+ * 那个做法能工作，但让线的 margin 承担了补偿职责，值偏离 DPG 且解释成本高。
+ * 现在把「下侧那 12px」还给标题自己，线的 margin 归零。
  *
  * ## 为什么是独立元素而不是 `border-top`
  *
@@ -193,18 +191,20 @@
  */
 .rule {
   flex: none;
-  /* 上 4px 抵掉上一行自带的下 padding，使「内容→线」与「线→内容」都是 16px。 */
-  margin: 4px 0 16px;
+  margin: 0;
   border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 /*
  * 分组标题。
  *
- * `margin: 0` 是官方的写法（`SubagentCard.module.css` 的 `.heading`）。
- * 标题与下方第一行之间的留白**全部由那一行自己的 `padding-top` 提供**，
- * 标题自己不加任何边距 —— 早先写了 `margin: 0 0 4px`，那 4px 没有任何依据，
- * 让「标题→第一行」比官方多了 4px。
+ * **默认 `margin: 0`** —— 标题与下方第一行之间的留白全部由那一行自己的
+ * `padding-top` 提供。（早先写过 `margin: 0 0 4px`，那 4px 没有任何依据。）
+ *
+ * 只有**前面有分隔线的那一组**才需要 `margin-top: 12px`：它提供「线→标题」
+ * 的那 12px，与上一行 `padding-bottom: 12px` 对称。见下方相邻选择器规则。
+ *
+ * 第一组的标题不加，否则卡片顶部会凭空多出 12px。
  */
 .heading {
   margin: 0;
@@ -212,6 +212,33 @@
   font-weight: 600;
   line-height: 1.5;
   color: var(--dsw-alias-label-primary);
+}
+
+/*
+ * 「线后面那一组」的标题顶上补 12px。
+ *
+ * ## 为什么用相邻选择器而不是给所有标题加、再排除第一组
+ *
+ * `.rule + .section > .heading` 只依赖一个事实：**线的下一个兄弟是它所属的
+ * section** —— 这正是 `Section` 组件的结构：
+ *
+ * ```tsx
+ * {divider && <div className={css.rule} />}
+ * <section className={css.section}>…<h3 className={css.heading}>…</section>
+ * ```
+ *
+ * 另一种写法（`.heading { margin-top: 12px }` + `.section:first-child` 排除）
+ * 依赖「`.section` 是 `.stack` 的第一个子元素」，卡片顶部一旦加别的东西就会失效。
+ *
+ * ## 为什么用 margin 而不是 section 的 padding
+ *
+ * 两者视觉效果相同，但 `.stack` 是 `display: flex`，`.section` 是 flex item——
+ * **flex item 不会与其子元素发生 margin 合并**，所以标题的 margin-top 稳定留在
+ * section 内部。若将来 `.stack` 改成普通 block，标题的 margin 会 collapse 到
+ * section 外面（视觉仍是 12px，但归属变了）。
+ */
+.rule + .section > .heading {
+  margin-top: 12px;
 }
 
 /* ── 纵向字段（输入框项）──────────────────────────────────────────────── */

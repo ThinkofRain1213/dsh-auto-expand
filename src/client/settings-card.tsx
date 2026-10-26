@@ -41,7 +41,7 @@
  */
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import {
-  IconChevronDownOutlineRegular, IconInfoOutlineRegular, Menu, Switch,
+  IconChevronDownOutlineRegular, Menu, SettingsValueField, Switch,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // 引入 `plugins.bundle.config` 的 SlotMap 声明（type-only，无运行时依赖）。
@@ -199,7 +199,7 @@ function SelectRow<T extends string>({ title, description, value, options, onCha
  * @param props - 标题、描述、当前值、提交回调、锁定信息、占位符与警示文案。
  * @returns 一行设置。
  */
-function NumberRow({ title, description, value, onCommit, locked, placeholder, warning, unit = '%' }: {
+function NumberRow({ title, description, value, onCommit, locked, placeholder, warning, fieldId }: {
   readonly title: string
   readonly description: string
   /** `null` 表示不设上限。 */
@@ -211,7 +211,8 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
   readonly placeholder: string
   /** 值过小时的提示；为空表示不显示警告。 */
   readonly warning: string
-  readonly unit?: string
+  /** 官方字段要求稳定 id，用于 label 与控件的关联。 */
+  readonly fieldId: string
 }) {
   const [draft, setDraft] = useState(value === null ? '' : String(value))
   const [focused, setFocused] = useState(false)
@@ -222,24 +223,36 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
     setDraft(value === null ? '' : String(value))
   }, [value, focused])
   const parsed = draft === '' ? null : Number(draft)
-  const showWarning = !locked && parsed !== null && parsed < WARN_BELOW_PERCENT
+  /**
+   * 值过小时把它标成「无效」，让官方组件在自己的提示位显示警示文案。
+   *
+   * 这不是真正的非法值（`0`、`5` 都能保存），只是**过小**。借用 `invalid` 通道
+   * 是因为官方 `SettingsValueField` 只有这一个提示位：它会用 `invalidLabel`
+   * 替换 `hint`，并把边框染成错误色。若另造一套提示，就会与官方字段的语义打架。
+   */
+  const tooSmall = !locked && parsed !== null && parsed < WARN_BELOW_PERCENT
   /**
    * 提交草稿。
    *
    * 空草稿提交 `null`（= 不设上限），这是本控件的核心语义，不偷偷填回 100。
+   *
+   * ## 为什么由外层 `<div onBlur>` 触发，而不是输入框自己的 `onBlur`
+   *
+   * 官方 `SettingsValueField` 只暴露 `onEdit` / `onReset`，没有 `onBlur` 钩子。
+   * 但 React 的 `blur` 事件**不冒泡**——所以外层要用 `onBlurCapture` 才能收到
+   * 输入框失焦。这是接入官方组件时唯一需要额外处理的地方。
    *
    * ## 提交后必须把草稿对齐到权威值
    *
    * `writeOptimistic` 是「先同步改快照、再异步写 Host、失败时回滚」。若提交后
    * 只依赖 `useEffect` 同步草稿，会有两个洞：
    *
-   * 1. **Enter 提交不让输入框失焦**，`focused` 仍为真，`useEffect` 直接 return，
-   *    于是 Host 拒绝后输入框仍显示那个**被拒绝**的值，看起来像保存成功了；
+   * 1. 失焦那一刻 `focused` 刚变 false 但 `useEffect` 尚未跑完，被 Host 拒绝的
+   *    值会短暂留在框里；
    * 2. `next === value` 的相等短路会让 `"007"` / `"000"` 这类草稿永远不回正
    *    （`Number('007') === 7 === value`），输入框长期显示 `007` 而语义是 `7`。
    *
-   * 因此这里显式把草稿写回 `value` 的规范形式。Host 拒绝时 `value` 会由
-   * `writeOptimistic` 回滚成旧值，下一帧的 `useEffect` 再把草稿拉回旧值。
+   * 因此这里显式把草稿写回 `value` 的规范形式。
    */
   const commit = (): void => {
     const next = draft === '' ? null : Number(draft)
@@ -249,67 +262,79 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
     onCommit(next)
   }
   return (
-    /* 纵向三段式，照抄官方 `fields.module.css` 的 `.field`：
-       标题行（左 label + 右警告）→ 满宽输入框 → 描述在框下。 */
-    <div className={css.field}>
-      <div className={css.fieldHead}>
-        <div className={locked === undefined
-          ? css.fieldLabel
-          : `${css.fieldLabel} ${css.gated}`}>{title}</div>
-        {/* 警告在标题行右侧（官方 `.head` 里 `.badges` 的位置），
-            这样既不挤占输入框，也不与「输入出错」产生语义混淆。 */}
-        {showWarning && (
-          <span className={css.fieldWarning} role="img" aria-label={warning} title={warning}>
-            <IconInfoOutlineRegular size={14} />
-            {warning}
-          </span>
-        )}
-      </div>
-      {/* 结构与 DPG 的 `.linkField` 一致：容器只负责定位，边框/字号全在
-          `<input>` 上；`%` 绝对定位在框内右端（对应 DPG 的 `.linkStatus`）。 */}
-      <div className={css.numField}>
-        <input
-          className={css.numInput}
-          type="text"
-          inputMode="numeric"
-          value={draft}
-          placeholder={placeholder}
-          disabled={locked !== undefined}
-          aria-label={title}
-          {...locked === undefined ? {} : { title: locked.hint }}
-          onFocus={() => { setFocused(true) }}
-          onChange={(event) => {
-            // 强过滤：只留数字。负号、字母因此物理上不可输入。
-            //
-            // 全角数字必须**先归一化再过滤**：中文输入法打出的 `１５０`
-            // 不符合 `\d`，直接过滤会得到空串，而空串在失焦时被解释为
-            // 「用户主动清空」→ 写入 `null`（不设上限）。那比「打不进去」
-            // 严重一档：用户以为设了 150%，实际把组设成撑满屏幕。
-            setDraft(normalizeDigits(event.target.value))
-          }}
-          onBlur={() => { setFocused(false); commit() }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return
-            event.preventDefault()
-            // Enter 也要失焦：否则 `focused` 仍为真，`useEffect` 不跟随
-            // Host 回滚，被拒绝的值会一直留在框里（见 `commit` 的注释）。
-            event.currentTarget.blur()
-          }}
-        />
-        <span className={css.numUnit}>{unit}</span>
-      </div>
-      {/* 描述在输入框下方，是纵向字段与横向行最大的区别。 */}
-      <div className={locked === undefined ? css.fieldHint : `${css.fieldHint} ${css.gated}`}>
-        {description}
-      </div>
+    /* 用官方 `SettingsValueField`：标题行 → 满宽输入框 → 描述在框下。
+       几何、字号、聚焦态、禁用态全部由官方组件提供，不再自己维护。 */
+    <div
+      className={css.field}
+      onFocusCapture={() => { setFocused(true) }}
+      onBlurCapture={() => { setFocused(false); commit() }}
+    >
+      <SettingsValueField
+        id={fieldId}
+        /* 单位写进标题，不用框内后缀——这是官方字段的标准做法
+           （对比「命令超时（毫秒）」）。 */
+        label={title}
+        hint={description}
+        text={draft}
+        invalid={tooSmall}
+        overridden={false}
+        overriddenLabel=""
+        resetLabel=""
+        invalidLabel={warning}
+        numeric
+        disabled={locked !== undefined}
+        placeholder={placeholder}
+        {...locked === undefined ? {} : { title: locked.hint }}
+        onEdit={(text) => {
+          // 强过滤：只留数字。负号、字母因此物理上不可输入。
+          //
+          // 全角数字必须**先归一化再过滤**：中文输入法打出的 `１５０`
+          // 不符合 `\d`，直接过滤会得到空串，而空串在失焦时被解释为
+          // 「用户主动清空」→ 写入 `null`（不设上限）。那比「打不进去」
+          // 严重一档：用户以为设了 150%，实际把组设成撑满屏幕。
+          setDraft(normalizeDigits(text))
+        }}
+        onReset={() => { setDraft('') }}
+      />
     </div>
   )
 }
 
 /**
  * 渲染九行设置。
+/**
+ * 一个一级分组：`<h3>` 标题 + 组内各行。
  *
- * 没有分组标题：插件详情页顶部已经写着插件名和描述。
+ * ## 为什么定义在模块级而不是 `SettingsCard` 内部
+ *
+ * 早先它写在 `SettingsCard` 函数体里。那样**每次渲染都会创建新的组件类型**，
+ * React 认为整棵子树是全新的，于是**卸载重建**每个分组——表现为：
+ *
+ * - 开关的切换动画消失（不是更新，是重建）；
+ * - 点击开关后页面跳到顶部（DOM 节点被移除又插入，滚动位置丢失）。
+ *
+ * 组件定义在渲染过程中产生，是 React 里最典型的性能与状态 bug 来源。
+ * 挪到模块级后，组件类型稳定，React 走正常的更新路径。
+ * @param props - 分组标题、`aria-labelledby` 的锚点 id、组内各行。
+ * @returns 一个分节。
+ */
+function Section({ id, title, children }: {
+  readonly id: string
+  readonly title: string
+  readonly children: ReactNode
+}) {
+  return (
+    <section className={css.section} aria-labelledby={id}>
+      <h3 className={css.heading} id={id}>{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+/**
+ * 渲染四个分组、九个设置项。
+ *
+ * 没有卡片级标题：插件详情页顶部已经写着插件名和描述。
  *
  * 设置状态来自模块级 `settingsSource`（见 `settings.ts`），因此本卡片与
  * 渲染层的展开策略读的是**同一个**快照，不可能不一致。
@@ -344,24 +369,6 @@ export function SettingsCard({ t }: SettingsCardProps) {
   const scopeOptions = INSPECT_BUTTON_HIDE_SCOPES.map(id => ({
     id, label: t(SCOPE_LABEL_KEYS[id]),
   }))
-  /**
-   * 渲染一个一级分组。
-   *
-   * 标题用 `<h3>` + `aria-labelledby`，与官方 `SubagentCard` 同款：
-   * 分组标题是 13px/600，比行标题（13px/500）重一档——这是区分层级的唯一手段。
-   * @param props - 分组标题、`useId` 派生的锚点、以及组内各行。
-   * @returns 一个分节。
-   */
-  const Section = ({ id, title, children }: {
-    readonly id: string
-    readonly title: string
-    readonly children: ReactNode
-  }) => (
-    <section className={css.section} aria-labelledby={id}>
-      <h3 className={css.heading} id={id}>{title}</h3>
-      {children}
-    </section>
-  )
   return (
     <div className={css.stack}>
       <Section id={`${sectionId}-workgroup`} title={t('groupWorkGroup' as SettingsKey)}>
@@ -444,6 +451,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
           <div className={css.column}>
             <NumberRow
               title={t('heightPercentTitle' as SettingsKey)}
+              fieldId={`${sectionId}-height-percent`}
               description={state.heightPercent.gate === 'heightCustom'
                 ? t('gatedByHeightCustom' as SettingsKey)
                 : t('heightPercentDesc' as SettingsKey)}

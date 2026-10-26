@@ -265,9 +265,13 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
     /* 外层只负责捕获焦点事件（官方 `SettingsValueField` 没有暴露 `onFocus` /
         `onBlur`），**不能带任何纵向 padding** —— 那个 div 内部的官方组件自己
         已经有 `.field { padding: 12px 0 }`，再包一层带 padding 的容器会让这一行
-        的上下留白比其它行多一倍（24px vs 12px），肉眼立刻看出这一格是错的。 */
+        的上下留白比其它行多一倍（24px vs 12px），肉眼立刻看出这一格是错的。
+
+        锁定时加 `.fieldGated`：官方组件只把 `disabled` 传给 `<input>`
+        （`fields.module.css` 的 `.input:disabled` 只改文字色），label 与 hint
+        不变灰。但本卡片里其它行被锁时是整行变灰的（`.gated`），两类行必须一致。 */
     <div
-      className={css.fieldSlot}
+      className={locked === undefined ? css.fieldSlot : `${css.fieldSlot} ${css.fieldGated}`}
       onFocusCapture={() => { setFocused(true) }}
       onBlurCapture={() => { setFocused(false); commit() }}
     >

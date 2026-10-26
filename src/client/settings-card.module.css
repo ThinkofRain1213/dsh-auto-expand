@@ -261,3 +261,43 @@
   min-width: 0;
 }
 
+/*
+ * 被上层开关锁住时的纵向字段。
+ *
+ * ## 为什么需要单独一条规则
+ *
+ * 官方 `SettingsValueField` 只把 `disabled` 传给 `<input>`——
+ * `fields.module.css:124` 的 `.input:disabled` 仅改**输入框的文字色**，
+ * 而 `<label>`（`.label`）和说明文字（`.hint`）保持原色不变。
+ *
+ * 但本卡片里其它行被锁时是**整行变灰**的（`.gated` 改 `color` + 控件 `opacity`）。
+ * 若这一行只灰输入框，同一张卡片里就会出现两种"锁定"的视觉语言。
+ *
+ * ## 为什么用后代选择器覆盖
+ *
+ * 官方那两个颜色写在它自己的 CSS Module 里，无法通过传参改变。这里用
+ * `.fieldGated` 前缀提高特异性来覆盖，并且**同样用颜色 token 而不是 opacity**
+ * ——原因与 `.gated` 相同：`opacity` 会让元素成为独立合成层，
+ * 页面上任何一个 `Switch` 播放动画都会触发重合成，肉眼可见亮度抖动。
+ */
+.fieldGated label,
+.fieldGated p {
+  color: var(--dsw-alias-label-dimmed);
+}
+
+/*
+ * 被锁时输入框也压暗。
+ *
+ * 官方 `.input:disabled` 只把**文字色**改成 `label-tertiary`，边框与底色不变 ——
+ * 单独看没问题，但同一张卡片里下拉控件被锁时是整体 `opacity: .5`
+ * （`.selector:disabled`），两者并排就会一个"浅了"、一个"只是字淡了"。
+ *
+ * 用 `opacity` 而不是逐个改颜色：这里是**控件本身**，与官方对带背景控件的处理
+ * 一致（`Switch.module.css:23` 用 `opacity: .5`、
+ * `SegmentedControl.module.css:61` 用 `opacity: .4`）。纯文本才用颜色 token。
+ */
+.fieldGated input {
+  opacity: 0.5;
+  cursor: default;
+}
+

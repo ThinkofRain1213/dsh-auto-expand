@@ -73,6 +73,16 @@ export const zh = {
   gatedByWorkGroup: '由「自动展开操作组」控制，现已关闭',
   gatedByReasoning: '由「自动展开思考过程」控制，现已关闭',
   gatedByTool: '由「自动展开工具结果」控制，现已关闭',
+  heightCustomTitle: '自定义展开高度',
+  heightCustomDesc: '操作组展开时的高度上限；关闭时使用官方默认。',
+  heightPercentTitle: '展开高度',
+  heightPercentDesc: '按官方高度的百分比缩放；留空表示不设上限。',
+  heightPercentTooSmall: '高度过小，内容几乎不可见',
+  heightPercentPlaceholder: '不限',
+  heightHistoryTitle: '历史轮次也应用',
+  heightHistoryDesc: '开启后，已结束轮次的操作组也使用上面的高度。',
+  gatedByHeightCustom: '由「自定义展开高度」控制，现已关闭',
+  heightIdle: '「自动展开操作组」已关闭，此设置暂不生效。',
 } as const
 
 /** 英文文案。 */
@@ -102,6 +112,16 @@ export const en = {
   gatedByWorkGroup: 'Controlled by "Auto-expand process groups"; currently off',
   gatedByReasoning: 'Controlled by "Auto-expand reasoning"; currently off',
   gatedByTool: 'Controlled by "Auto-expand tool results"; currently off',
+  heightCustomTitle: 'Custom expanded height',
+  heightCustomDesc: 'Height cap for expanded process groups; official default when off.',
+  heightPercentTitle: 'Expanded height',
+  heightPercentDesc: 'A percentage of the official height; leave empty for no cap.',
+  heightPercentTooSmall: 'Too small — content is barely visible',
+  heightPercentPlaceholder: 'No cap',
+  heightHistoryTitle: 'Apply to past turns too',
+  heightHistoryDesc: 'Also apply the height above to process groups in finished turns.',
+  gatedByHeightCustom: 'Controlled by "Custom expanded height"; currently off',
+  heightIdle: '"Auto-expand process groups" is off, so this setting has no effect yet.',
 } as const
 
 /** 本命名空间的文案键。 */

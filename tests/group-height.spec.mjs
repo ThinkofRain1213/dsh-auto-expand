@@ -104,3 +104,20 @@ test('判断顺序：groupAutoExpand 优先于一切', () => {
   // 即便其它条件全都满足，第 0 条也先命中
   assert.equal(groupHeight({ ...base, groupAutoExpand: false, percent: null }), null)
 })
+
+test('高度文案键在中英两套里都存在且非空', async () => {
+  const { zh, en } = await import('../src/client/locales.ts')
+  const keys = [
+    'heightCustomTitle', 'heightCustomDesc',
+    'heightPercentTitle', 'heightPercentDesc',
+    'heightPercentTooSmall', 'heightPercentPlaceholder',
+    'heightHistoryTitle', 'heightHistoryDesc',
+    'gatedByHeightCustom', 'heightIdle',
+  ]
+  for (const key of keys) {
+    assert.ok(typeof zh[key] === 'string' && zh[key].length > 0, `zh 缺 ${key}`)
+    assert.ok(typeof en[key] === 'string' && en[key].length > 0, `en 缺 ${key}`)
+  }
+  // 警告文案必须与设计文档一致
+  assert.equal(zh.heightPercentTooSmall, '高度过小，内容几乎不可见')
+})

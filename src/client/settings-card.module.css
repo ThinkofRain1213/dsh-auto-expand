@@ -23,13 +23,18 @@
 
 /*
  * 一行设置：名称/描述在左，控件在右。
- * 几何照官方设置行（`PermissionRow` / `PreferenceRow`）。
+ *
+ * `padding: 12px 0` 而不是 16px —— 这是**官方设置页字段的纵向留白**
+ * （`ui-primitives/src/settings-form/fields.module.css` 的 `.field`：
+ * `padding: 12px 0`）。本卡片里既有这种横向行、也有官方 `SettingsValueField`
+ * 的纵向字段，两者必须用同一个纵向 padding，否则行与行之间的间距不相等
+ * （早先是 16/16/12 三种值混排，肉眼一眼看出"高度都不一样"）。
  */
 .row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 16px 0;
+  padding: 12px 0;
 }
 
 /*
@@ -128,45 +133,81 @@
 /* ── 一级分组 ──────────────────────────────────────────────────────────── */
 
 /*
- * 一个分组。**规格照抄官方 SubagentCard.module.css**：
- * `section { padding: 16px 0 }`，标题 `13px / 600 / line-height 1.5`。
+ * 一个分组。
  *
- * 标题比普通行标题（`.title` 的 13/500）重一档，这是官方区分层级的唯一手段。
+ * ## 为什么纵向往外让给「行自己」和「分隔线」
+ *
+ * 官方 `SubagentCard` 的 `.section` 是 `padding: 16px 0`，那是因为它里面全是
+ * `SettingsValueField`（自带 `padding: 12px 0`）—— 官方靠这两层叠加出间距。
+ *
+ * 本卡片混用了两种行：横向 `.row`（自带 `12px 0`）与官方纵向字段（自带 `12px 0`）。
+ * 若 `.section` 再加 `16px`，就会变成「行 12 + 分节 16」的叠加，而**分隔线两侧
+ * 的构成不同**：上侧是「行 12 + 分节 16」= 28，下侧是「分节 16 + 标题 0」= 16，
+ * 差了一倍 —— 这是肉眼最容易看出的一种不整齐。
+ *
+ * 因此这里**去掉纵向 padding**，纵向留白全部交给两个东西：
+ * 1. 每行自己的 `padding: 12px 0`（行与行之间因此是 24px）；
+ * 2. `.rule` 自己的 `margin: 16px 0`（分隔线两侧各 16px，且**对称**）。
+ *
+ * 这样「上条内容→线」= 12（行下 padding）+ 16（线 margin）= 28px，
+ * 「线→下组标题」= 16（线 margin）+ 0（标题 margin）= 16px……
+ *
+ * ⚠️ 这两个仍然不等。见 `.rule` 上方的补偿说明。
  */
 .section {
   min-width: 0;
-  padding: 16px 0;
+  padding: 0;
 }
 
 /*
- * 两个分组之间的边界线。**实现照抄 DPG 的 `.rule`**（`dsh-project-groups/src/
- * client/settings-card.module.css:157-171`）。
+ * 两个分组之间的边界线。
  *
- * ## `margin: 0` 就是全部设计
+ * ## 为什么需要非对称 margin
  *
- * 相邻两个分组各自有 `padding: 16px 0`，内容之间本来就有 16 + 16 = 32px 的空隙。
- * 这条线落在那段空隙**正中间**，因此「内容到线」与「线到内容」都是 16px，
- * 而「内容到内容」仍是 32px —— 与没有这条线时完全一样，线不占额外空间。
+ * 分隔线两侧的**内容构成天然不同**：
  *
- * ## 为什么是独立元素，而不是上一条规则里的 `border-top`
+ * | 位置 | 上侧 | 下侧 |
+ * |---|---|---|
+ * | 紧邻线的元素 | 一行 `.row`（自带 `padding-bottom: 12px`） | 一个 `<h3>`（`margin: 0`） |
  *
- * `border` 属于某一个块，会让那个块的 padding 变得不对称：线贴上该块的上边缘，
- * 而它上方那 16px 属于**另一个块**。视觉上线就"贴"在上面那组的内容上，
- * 上下间距不等 —— 这正是早先版本难看的成因（DPG 的注释记录过同一个事故）。
+ * 所以要让「内容→线」与「线→内容」看着一样远，线的上 margin 必须比下 margin
+ * **少 12px**，正好抵掉那一行的 padding-bottom。
  *
- * 用独立元素后，线的位置由两侧的 padding 决定，天然居中。
- * 前提是**上下两块的 padding 必须相同**：若有一块改了 padding，线就会偏移。
+ * 目标视觉间距 16px ⇒ `margin: 4px 0 16px`：
+ * - 上侧：行 12 + 线 4 = **16px**
+ * - 下侧：线 16 + 标题 0 = **16px**
+ *
+ * ## 为什么不用 DPG 的 `margin: 0`
+ *
+ * DPG 能写 `margin: 0`，是因为它上下两个 `.group` **都有** `padding: 16px 0`
+ * 且**内部没有自带 padding 的行**，两侧构成相同。本卡片不满足那个前提：
+ * 行自带 padding 而标题不带。照搬 `margin: 0` 就会出现「上 28 / 下 16」。
+ *
+ * ## 为什么是独立元素而不是 `border-top`
+ *
+ * `border` 属于某一个块，会让那个块的 padding 不对称、线贴到一侧内容上
+ * （DPG 的注释记录过同一个事故：`a border belongs to one block, which makes
+ * that block's own padding lopsided`）。
  *
  * 全宽，因为两个全宽块之间的分隔线本来就不该内缩。
  */
 .rule {
   flex: none;
-  margin: 0;
+  /* 上 4px 抵掉上一行自带的下 padding，使「内容→线」与「线→内容」都是 16px。 */
+  margin: 4px 0 16px;
   border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
+/*
+ * 分组标题。
+ *
+ * `margin: 0` 是官方的写法（`SubagentCard.module.css` 的 `.heading`）。
+ * 标题与下方第一行之间的留白**全部由那一行自己的 `padding-top` 提供**，
+ * 标题自己不加任何边距 —— 早先写了 `margin: 0 0 4px`，那 4px 没有任何依据，
+ * 让「标题→第一行」比官方多了 4px。
+ */
 .heading {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 13px;
   font-weight: 600;
   line-height: 1.5;
@@ -192,15 +233,23 @@
 /* ── 纵向字段（输入框项）──────────────────────────────────────────────── */
 
 /*
- * 官方 fields.module.css 的 `.field`：纵向三段，段间 6px。
+ * 官方 `fields.module.css` 的 `.field`：纵向三段，段间 6px，**上下各 12px**。
  *
  * 与横向 `.row` 的区别是根本性的：这里标题、控件、说明各占一行，控件满宽；
  * `.row` 是左右分栏，控件贴在右侧。
+ *
+ * ## `padding: 12px 0` 不能省
+ *
+ * 它是官方字段与外层容器之间唯一的纵向留白来源。早先这里只写了 `gap: 6px`、
+ * 漏掉 padding，导致「自定义展开高度」（横向行，`padding: 12px 0`）与
+ * 「展开高度」（这个字段）之间只有 12px，而其它行之间是 24px —— 三种间距混排，
+ * 肉眼看就是「高度都不一样」。
  */
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 12px 0;
   min-width: 0;
 }
 

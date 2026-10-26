@@ -1,0 +1,23 @@
+# 统一 LF —— 这不是风格偏好，是构建正确性要求。
+#
+# `lib/` 是入库的，且 `lib/client.js.map` 的 `sourcesContent` 内联了源码原文。
+# 只要工作区里有一个源文件是 CRLF，本地构建出的 sourcemap 就与 CI 的不一致，
+# 于是 `Assert committed bundles match src` 永远失败：
+#
+#   本地（含 1 个 CRLF 源文件）  274.55 kB
+#   CI（全 LF）                 274.15 kB
+#
+# 而 Windows 上 `core.autocrlf=true` 会在每次 checkout 时把仓库里的 LF
+# 全部转成 CRLF —— 也就是说**新克隆的仓库必然复现这个问题**。
+#
+# `eol=lf` 让 checkout 也保持 LF，与仓库内容一致，构建因此可复现。
+* text=auto eol=lf
+
+# 二进制文件不做行尾转换。
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

@@ -124,3 +124,92 @@
 .chevron {
   flex: none;
 }
+
+/* ── 数字输入行（高度设置）────────────────────────────────────────────── */
+
+/*
+ * 控件组：警告图标 + 输入框，整体靠右。
+ *
+ * `flex: none` 让它不参与 `.row` 的伸缩，与 `.selector` / `Switch` 一样
+ * 紧贴行的右端 —— 所有行的控件右边缘因此对齐在同一条线上。
+ */
+.numGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+/*
+ * 警告槽：**固定占位**，默认不可见。
+ *
+ * 不能用条件渲染（`{warning && <Icon/>}`），否则图标出现/消失时会把输入框
+ * 推歪，行内元素左右跳动。用 `visibility: hidden` 而不是 `display: none`：
+ * 前者保留占位，后者仍会让布局重排。
+ */
+.warnSlot {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  visibility: hidden;
+}
+
+.warnSlot.show {
+  visibility: visible;
+}
+
+.warnIcon {
+  color: var(--dsw-alias-state-warn-primary);
+}
+
+/*
+ * 输入框外壳。几何照 `.selector`（36px 高、`radius-md`、13px 字），
+ * 换成本项目输入框的底色与描边。
+ */
+.numWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.numWrap:focus-within {
+  border-color: var(--dsw-alias-state-business-primary);
+}
+
+/* 与 `.selector:disabled` 一致：整个控件压暗，而不是只改文字色。 */
+.numWrap.locked {
+  opacity: 0.5;
+}
+
+.numInput {
+  width: 56px;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 0;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  text-align: right;
+}
+
+.numInput::placeholder {
+  color: var(--dsw-alias-label-dimmed);
+}
+
+.unit {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  color: var(--dsw-alias-label-tertiary);
+}

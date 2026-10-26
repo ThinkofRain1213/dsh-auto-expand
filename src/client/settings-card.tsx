@@ -35,8 +35,10 @@
  *
  * 不把依赖关系显示出来，UI 就在撒谎——用户会反复拨弄一个毫无反应的控件。
  */
-import { useState } from 'react'
-import { IconChevronDownOutlineRegular, Menu, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useEffect, useState } from 'react'
+import {
+  IconChevronDownOutlineRegular, IconInfoOutlineRegular, Menu, Switch,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // 引入 `plugins.bundle.config` 的 SlotMap 声明（type-only，无运行时依赖）。
 import type {} from './contract/slot-declarations.ts'
@@ -66,6 +68,14 @@ const SCOPE_LABEL_KEYS: Record<InspectButtonHideScope, SettingsKey> = {
   current: 'inspectScopeCurrent',
   all: 'inspectScopeAll',
 }
+
+/**
+ * 低于这个百分比时显示橙色警告。
+ *
+ * `10%` 对应 `min(40px, 5vh)`，已经容不下一条完整操作行（含渐隐区）。
+ * 与设计文档 §6.1.2 一致。
+ */
+const WARN_BELOW_PERCENT = 10
 
 /**
  * 一行开关：名称 + 描述 + 右侧 Switch。
@@ -155,7 +165,105 @@ function SelectRow<T extends string>({ title, description, value, options, onCha
 }
 
 /**
- * 渲染五行设置。
+ * 一行数字输入：名称 + 描述在左，右侧是「警告图标 + 输入框 + 单位」。
+ *
+ * ## 为什么是受控草稿，而不是每次输入都写 Host
+ *
+ * 开关是点击即写（没有中间态），但数字输入有：输入 `200` 的过程是
+ * `2` → `20` → `200`。若逐字写入，中间那个 `2%` 会让操作组瞬间压到
+ * `min(8px, 1vh)`，用户会看到组在打字时闪缩三次。
+ *
+ * 因此键入只改本地 `draft`，失焦或回车才提交。
+ *
+ * ## 空值 = 不设上限
+ *
+ * 提交空草稿时写 `null`。`0` 不是特殊值——它是普通的「过小值」，
+ * 由橙色 ⓘ 劝阻但**不阻止**保存。
+ *
+ * ## 警告图标为什么在框外左侧
+ *
+ * 它表达的是「这个值太小」，不是「输入出错」。塞进框里会把它读成后者。
+ * 这与 DPG 的 `LinkRow` 不同（那边有 4 种状态，框内右侧是唯一空位）。
+ * @param props - 标题、描述、当前值、提交回调、锁定信息、占位符与警示文案。
+ * @returns 一行设置。
+ */
+function NumberRow({ title, description, value, onCommit, locked, placeholder, warning, unit = '%' }: {
+  readonly title: string
+  readonly description: string
+  /** `null` 表示不设上限。 */
+  readonly value: number | null
+  readonly onCommit: (next: number | null) => void
+  /** 存在表示该行被上层控制：整体变灰、拒绝输入、描述已换成控制者说明。 */
+  readonly locked?: { readonly hint: string }
+  /** 空值时框内的灰字。 */
+  readonly placeholder: string
+  /** 值过小时的提示；为空表示不显示警告。 */
+  readonly warning: string
+  readonly unit?: string
+}) {
+  const [draft, setDraft] = useState(value === null ? '' : String(value))
+  const [focused, setFocused] = useState(false)
+  // 非聚焦时跟随外部值（例如设置被重置，或 Host 回滚）。
+  // 聚焦时必须保留草稿，否则用户打字打到一半会被外部值覆盖。
+  useEffect(() => {
+    if (focused) return
+    setDraft(value === null ? '' : String(value))
+  }, [value, focused])
+  const parsed = draft === '' ? null : Number(draft)
+  const showWarning = !locked && parsed !== null && parsed < WARN_BELOW_PERCENT
+  /**
+   * 提交草稿。
+   *
+   * 空草稿提交 `null`（= 不设上限），这是本控件的核心语义，不偷偷填回 100。
+   */
+  const commit = (): void => {
+    const next = draft === '' ? null : Number(draft)
+    if (next === value) return
+    onCommit(next)
+  }
+  return (
+    <div className={css.row}>
+      <div className={css.rowText}>
+        <div className={locked === undefined ? css.title : `${css.title} ${css.gated}`}>{title}</div>
+        <div className={locked === undefined ? css.desc : `${css.desc} ${css.gated}`}>{description}</div>
+      </div>
+      <div className={css.numGroup}>
+        {/* 固定占位：出警告时不把输入框推歪。 */}
+        <span className={showWarning ? `${css.warnSlot} ${css.show}` : css.warnSlot}
+          {...showWarning ? { title: warning } : {}}>
+          {showWarning && <IconInfoOutlineRegular size={16} className={css.warnIcon} />}
+        </span>
+        <div className={locked === undefined ? css.numWrap : `${css.numWrap} ${css.locked}`}>
+          <input
+            className={css.numInput}
+            type="text"
+            inputMode="numeric"
+            value={draft}
+            placeholder={placeholder}
+            disabled={locked !== undefined}
+            aria-label={title}
+            {...locked === undefined ? {} : { title: locked.hint }}
+            onFocus={() => { setFocused(true) }}
+            onChange={(event) => {
+              // 强过滤：非数字字符敲不进去。负数因此物理上不可输入。
+              setDraft(event.target.value.replace(/[^\d]/g, ''))
+            }}
+            onBlur={() => { setFocused(false); commit() }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return
+              event.preventDefault()
+              commit()
+            }}
+          />
+          <span className={css.unit}>{unit}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 渲染九行设置。
  *
  * 没有分组标题：插件详情页顶部已经写着插件名和描述。
  *
@@ -250,6 +358,39 @@ export function SettingsCard({ t }: SettingsCardProps) {
         value={settings.inspectButtonHideScope}
         options={scopeOptions}
         onChange={next => { void setAutoExpandSetting('inspectButtonHideScope', next) }}
+      />
+      {/* 高度三行（第七~九行）。
+          第一行永不锁死（它自己能独立决策）；大段开关关闭时它仍可编辑，
+          只是用描述说明「暂不生效」——与第六行同一套做法。 */}
+      <SwitchRow
+        title={t('heightCustomTitle' as SettingsKey)}
+        description={state.groupHeightIdle
+          ? t('heightIdle' as SettingsKey)
+          : t('heightCustomDesc' as SettingsKey)}
+        checked={state.heightCustom.checked}
+        onChange={next => { void setAutoExpandSetting('groupHeightCustom', next) }}
+      />
+      <NumberRow
+        title={t('heightPercentTitle' as SettingsKey)}
+        description={state.heightPercent.gate === 'heightCustom'
+          ? t('gatedByHeightCustom' as SettingsKey)
+          : t('heightPercentDesc' as SettingsKey)}
+        value={settings.groupHeightPercent}
+        placeholder={t('heightPercentPlaceholder' as SettingsKey)}
+        warning={t('heightPercentTooSmall' as SettingsKey)}
+        onCommit={next => { void setAutoExpandSetting('groupHeightPercent', next) }}
+        {...state.heightPercent.locked ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } } : {}}
+      />
+      <SwitchRow
+        title={t('heightHistoryTitle' as SettingsKey)}
+        description={state.heightHistory.gate === 'heightCustom'
+          ? t('gatedByHeightCustom' as SettingsKey)
+          : t('heightHistoryDesc' as SettingsKey)}
+        checked={settings.groupHeightHistory}
+        onChange={next => { void setAutoExpandSetting('groupHeightHistory', next) }}
+        {...state.heightHistory.locked
+          ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } }
+          : {}}
       />
     </div>
   )

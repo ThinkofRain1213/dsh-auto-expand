@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import {
   DEFAULT_GROUP_HEIGHT_PERCENT,
   GROUP_HEIGHT_CUSTOM_FIELD, GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD,
+  groupHeight,
 } from '../src/client/group-height.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -43,4 +44,63 @@ test('read() 对 groupHeightPercent 不能用 ?? 回退（会吃掉用户清空�
   assert.match(source, /groupHeightPercent\s*===\s*undefined/)
   // 且该字段不得出现在 `?? DEFAULT_SETTINGS` 形式里
   assert.doesNotMatch(source, /groupHeightPercent:\s*value\?\.groupHeightPercent\s*\?\?/)
+})
+
+// ── groupHeight 纯函数 ──────────────────────────────────────────────────
+
+/** 一份「所有条件都满足」的基线，每个用例只改自己关心的那一个字段。 */
+const base = {
+  groupAutoExpand: true,
+  capped: true,
+  isCurrent: true,
+  custom: true,
+  history: false,
+  percent: 100,
+}
+
+test('操作组自动展开关闭时整体不生效（Spec 6.5 第 0 条）', () => {
+  assert.equal(groupHeight({ ...base, groupAutoExpand: false, percent: 150 }), null)
+})
+
+test('capped 为假时不干预（官方 detailed 模式）', () => {
+  assert.equal(groupHeight({ ...base, capped: false, percent: 150 }), null)
+})
+
+test('高度开关关闭时不干预', () => {
+  assert.equal(groupHeight({ ...base, custom: false }), null)
+})
+
+test('历史组且未开启历史应用时不干预', () => {
+  assert.equal(groupHeight({ ...base, isCurrent: false }), null)
+})
+
+test('历史组且开启历史应用时生效', () => {
+  assert.deepEqual(groupHeight({ ...base, isCurrent: false, history: true }),
+    { maxHeight: 'min(400px, 50vh)' })
+})
+
+test('100% 等于官方原公式，逐像素相同', () => {
+  assert.deepEqual(groupHeight(base), { maxHeight: 'min(400px, 50vh)' })
+})
+
+test('50% 等比缩放', () => {
+  assert.deepEqual(groupHeight({ ...base, percent: 50 }), { maxHeight: 'min(200px, 25vh)' })
+})
+
+test('200% 可以超过官方上限', () => {
+  assert.deepEqual(groupHeight({ ...base, percent: 200 }), { maxHeight: 'min(800px, 100vh)' })
+})
+
+test('percent 为 null 时无上限，且必须同时给 overflow-y', () => {
+  assert.deepEqual(groupHeight({ ...base, percent: null }),
+    { maxHeight: 'none', overflowY: 'visible' })
+})
+
+test('percent 为 0 是普通值，不是无上限', () => {
+  assert.deepEqual(groupHeight({ ...base, percent: 0 }), { maxHeight: 'min(0px, 0vh)' })
+})
+
+test('判断顺序：groupAutoExpand 优先于一切', () => {
+  // 即便其它条件全都满足，第 0 条也先命中
+  assert.equal(groupHeight({ ...base, groupAutoExpand: false, percent: null }), null)
 })

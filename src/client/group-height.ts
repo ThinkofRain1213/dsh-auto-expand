@@ -50,3 +50,68 @@ export const GROUP_HEIGHT_HISTORY_FIELD = 'groupHeightHistory'
  * 高度的默认百分比：100 等于官方原公式，逐像素相同。
  */
 export const DEFAULT_GROUP_HEIGHT_PERCENT = 100
+
+/** {@link groupHeight} 的输入：组状态与当前设置。 */
+export interface GroupHeightInput {
+  /**
+   * 卡片第一行的开关（`groupAutoExpand`）。
+   *
+   * 关闭时「自动展开」不存在，高度设置没有可作用的对象 —— Spec §6.5 的第 0 条。
+   */
+  readonly groupAutoExpand: boolean
+  /**
+   * 官方判据 `capped = grouped && (!deferCompletedTurns || open)` 的结果。
+   *
+   * **必须由调用方传入，不要在这里重算**：`grouped` 为假（官方 detailed 平铺
+   * 模式）时 `capped` 恒假，重算会给本应无上限的组强加上限。
+   */
+  readonly capped: boolean
+  /** 该组是否属于「当前正在运行」，即 `closed === false`。 */
+  readonly isCurrent: boolean
+  /** 是否启用自定义高度。 */
+  readonly custom: boolean
+  /** 历史轮次是否也应用。 */
+  readonly history: boolean
+  /** 高度百分比；`null` = 留空 = 不设上限。 */
+  readonly percent: number | null
+}
+
+/** 应贴到 body 上的内联样式。 */
+export interface GroupHeightStyle {
+  readonly maxHeight: string
+  /**
+   * 只在「不设上限」时出现。
+   *
+   * 实测：只写 `max-height: none` 而元素仍是 `.body` 时，`overflow-y: auto`
+   * 会**继续裁剪**超出可视区的内容，`scrollbar-gutter: stable` 也仍保留
+   * 滚动条预留宽度。必须成对写 `overflow-y: visible` 才与真正平铺等价。
+   */
+  readonly overflowY?: string
+}
+
+/**
+ * 算出某一组 body 应有的高度。
+ *
+ * 规则按顺序命中，先命中先返回（Spec §6.5 + §6.2）：
+ *
+ * | # | 条件 | 结果 |
+ * |---|---|---|
+ * | 0 | `!groupAutoExpand` | `null`（整个功能不生效） |
+ * | 1 | `!capped` | `null`（官方本就不设上限） |
+ * | 2 | `!custom` | `null`（走官方） |
+ * | 3 | `!isCurrent && !history` | `null`（历史组不应用） |
+ * | 4 | `percent === null` | 无上限，成对给 `overflow-y` |
+ * | 5 | 其他 | `min(percent*4 px, percent*0.5 vh)` |
+ *
+ * @param input - 组状态与当前设置。
+ * @returns 内联样式；`null` 表示不写 style，交给 CSS class。
+ */
+export function groupHeight(input: GroupHeightInput): GroupHeightStyle | null {
+  if (!input.groupAutoExpand) return null
+  if (!input.capped) return null
+  if (!input.custom) return null
+  if (!input.isCurrent && !input.history) return null
+  // 留空 = 用户明确选择不设上限。
+  if (input.percent === null) return { maxHeight: 'none', overflowY: 'visible' }
+  return { maxHeight: `min(${input.percent * 4}px, ${input.percent * 0.5}vh)` }
+}

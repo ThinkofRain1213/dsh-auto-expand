@@ -256,6 +256,12 @@ gh release create vX.Y.Z --verify-tag --title "vX.Y.Z" --notes-file <说明.md>
 **勾选 Allow npm publish**），此后每个 Release 都由 `.github/workflows/publish.yml`
 经 OIDC 发布，仓库里不存长期 token。
 
+> **当前状态（2026-10-26）**：`0.1.0` 已由本机手工发布上线；
+> trusted publisher 已创建（Permissions: `npm publish` + `npm stage publish`），
+> 但状态为 **Pending validation** —— npm 要求在一次真实发布中验证该配置，
+> 逾期（2026-10-28 11:35 UTC）未验证则会失效、需重新创建。
+> 下次发新版本时若 CI 报 OIDC 认证失败，先回 npmjs.com 检查该配置是否仍在。
+
 ## 许可
 
 MIT

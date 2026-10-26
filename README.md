@@ -199,6 +199,7 @@ DSH 默认把工作过程折叠成三层：
 pnpm install
 pnpm verify         # typecheck + build + test + smoke
 pnpm pack:check     # 发布产物自检（files 覆盖、exports 可解析、产物体积）
+pnpm verify:release # 发布就绪检查（版本一致、locale 文案、打包清单、lib 已入库）
 pnpm drift          # DSH 升级后检查克隆组件是否与上游偏离
 pnpm watch          # 增量构建
 ```
@@ -220,6 +221,30 @@ DSH 升级后**第一件事**是跑 `pnpm drift`：
 - `partial`（部分摘取）变了 → 复核被摘取的片段即可。
 
 确认克隆已对齐后，用 `pnpm drift:record` 刷新 `spec/upstream.json`。
+
+## 发布
+
+`lib/` 是**提交进仓库**的：npm 的 tarball 由它构成，CI 也用它发布，
+这样发布的产物与仓库内容逐字节对应。改完源码记得 `pnpm build` 并一起提交，
+`validate` 工作流会断言 `lib/` 与 `src/` 同步。
+
+```bash
+# 1. 改版本号：package.json 的 version + CHANGELOG.md 加一段（必须带日期）
+# 2. 全量门禁（verify:release 会守住版本号/CHANGELOG/locale/打包清单/lib 已入库）
+pnpm verify && pnpm verify:release
+# 3. 提交并打 tag
+git commit -am "chore: release vX.Y.Z"
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push && git push --tags
+# 4. 建 GitHub Release —— 之后由 CI 发布
+gh release create vX.Y.Z --verify-tag --title "vX.Y.Z" --notes-file <说明.md>
+```
+
+**首次发布必须在本机手工 `npm publish`**：npm 没有「待生效的发布者」概念，
+第一个版本无法由 CI 发出。发成功后到 npmjs.com 给这个包配置 trusted publisher
+（`ThinkofRain1213` / `dsh-auto-expand` / `publish.yml` / 环境名留空 /
+**勾选 Allow npm publish**），此后每个 Release 都由 `.github/workflows/publish.yml`
+经 OIDC 发布，仓库里不存长期 token。
 
 ## 许可
 

@@ -1,0 +1,73 @@
+name: Validate
+
+# 构建与契约门禁。
+#
+# 本仓库的 `pnpm verify` 是**完全可移植**的：它不读本机安装的 DSH、不读上游
+# checkout（实测：在只含源码的干净快照里 `pnpm install --frozen-lockfile` 后
+# `verify` 166/166 通过、`pack:check` 通过）。所以这里直接跑全量门禁，
+# 不像 `dsh-project-groups` 那样需要为「读本机 app.asar」的脚本留后门。
+#
+# `pnpm drift` 需要上游源码 checkout，CI 上没有，该命令会以退出码 2 跳过，
+# 因此不纳入本工作流——它只在本机升级上游后手动跑。
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# 同一 ref 只留一次运行：否则同仓分支同时触发 push 与 pull_request 两次，
+# 且每次后续 push 都会再堆一轮。
+# main 上 `cancel-in-progress` 关闭：main 的运行记录是「这条分支是绿的」的证据，
+# 后来的 push 应当排队而不是取消它。
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Node ${{ matrix.node }} · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # 安装 + typecheck + 构建 + 166 个测试 + 冒烟 + 打包自检 + 发布就绪检查。
+    # 单个 OS 上一分钟量级；30 分钟足以覆盖依赖安装的网络抖动，
+    # 同时不会让一个卡住的运行占满 runner 默认的 6 小时上限。
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [24]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      # `verify` = typecheck + build + 166 tests + smoke。
+      # Windows 上 `run:` 默认是 pwsh，而这里每条都是一个 pnpm 脚本，
+      # 不含 shell 语法，所以三平台通用。
+      - name: Typecheck, build, test, smoke
+        run: pnpm verify
+      - name: Pack self-check
+        run: pnpm pack:check
+      - name: Release readiness
+        # 独立的发布事实检查：版本号/CHANGELOG 章节/locale 文案/打包清单/
+        # 构建产物已入库。它会跑 `git ls-files lib/`，因此需要 checkout 的 .git。
+        run: pnpm verify:release
+      - name: Assert committed bundles match src
+        # `lib/` 是入库的，npm 的 tarball 由它构成。重新构建后若 `lib/` 有变化，
+        # 说明有人改了源码却没提交构建产物——那会让发布的包与源码不一致。
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain -- lib/)" ]; then
+            echo "::error::lib/ 与 src/ 不同步，请在本机跑 pnpm build 并提交 lib/"
+            git status --porcelain -- lib/
+            exit 1
+          fi

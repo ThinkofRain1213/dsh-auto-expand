@@ -1,0 +1,145 @@
+name: Publish npm
+
+# 经 npm Trusted Publishing（OIDC）发布：仓库里不存长期 token，
+# 产物带 provenance 认证，能追溯到本工作流与这个 commit。
+#
+# ## 首次发布是手动的
+#
+# npm 没有「待生效的发布者」概念，所以一个包的**第一次**发布必须在本机手工执行
+# （`npm publish`）。之后在 npmjs.com 给这个包配置 trusted publisher：
+#
+#   Organization or user   ThinkofRain1213
+#   Repository             dsh-auto-expand
+#   Workflow filename      publish.yml
+#   Environment name       (留空)
+#   Allowed actions        [x] Allow npm publish
+#
+# ⚠️ 最后那个勾必须打。2026-09-03 之后创建的配置默认只允许 `npm stage publish`，
+# 而本工作流跑的是 `npm publish`。新配置还必须在两天内完成首次成功发布，
+# 否则会过期、需要重建。
+#
+# ## 为什么没有 environment 审批门
+#
+# 受保护环境会在 Release 与发布之间加一道人工审批，那确实是真实的加固，评估过。
+# 但 `Environment name` 是 npm 侧 trusted publisher 身份的一部分：在这里加一个，
+# 就要去 npmjs.com 用同样的名字重新配置，还得过浏览器和 WebAuthn 提示。
+# 而本工作流的唯一触发方式是**发布一个 Release**——那本身就是一个需要认证的
+# 手动动作。让同一个人在那个动作之后几秒再点一次批准，收益很小。
+#
+# ## 触发面
+#
+# 只认 `release: published`；`workflow_dispatch` 要求给的 tag 已解析到一个
+# **非草稿** Release（第一步断言）。普通 tag push 到不了这里。
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 已存在且非草稿的 GitHub Release tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish trusted npm release
+    runs-on: ubuntu-latest
+    # 按发布 tag 串行化。
+    #
+    # 「是否已发布」的检查与 `npm publish` 是两个独立步骤，没有这个并发组时，
+    # 两个重叠的运行（`release: published` 事件 + 手动 `workflow_dispatch`，
+    # 或一次重跑）可能都看到 `skip=false` 然后同时发布同一版本：第一个成功，
+    # 第二个因重复而失败——对什么都没做错的操作者来说是个莫名其妙的报错。
+    #
+    # `cancel-in-progress: false` 是刻意的：排队的那次应当继续跑，然后发现该版本
+    # 已存在并报告为幂等跳过，而不是被中途取消。
+    concurrency:
+      group: publish-${{ github.event.release.tag_name || inputs.tag }}
+      cancel-in-progress: false
+    # 卡住的 `pnpm install`/构建/`npm publish` 会让持有 `id-token: write` 的
+    # runner 一直占着，直到 GitHub 默认的 6 小时上限。本作业是安装+校验+发布，
+    # 20 分钟足够宽裕。
+    timeout-minutes: 20
+    # `id-token: write` 只给作业而不是整个工作流：只有这个作业发布，
+    # 工作流里别处新增的步骤就无法顺带为 trusted publisher 铸造 OIDC token。
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Resolve release tag
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then TAG="$INPUT_TAG"; else TAG="$RELEASE_TAG"; fi
+          test -n "$TAG"
+          RELEASE_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")"
+          test "$(jq -r .draft <<<"$RELEASE_JSON")" = "false"
+          test "$(jq -r .tag_name <<<"$RELEASE_JSON")" = "$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+      # 固定到 commit SHA 而不是 `@v4`：本作业持有 `id-token: write` 并发布
+      # 带签名的产物，第三方 action 的 tag 一旦被移动，注入的代码就能在一个
+      # 可为 trusted publisher 铸造 OIDC token 的步骤里执行——即「以本包名义发布」。
+      # 行尾注释记录人所共知的版本号，两者要一起更新。
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 12.4.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - name: Install npm with trusted-publishing support
+        run: npm install --global npm@11.5.1
+      - name: Verify tag matches package version
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          test "$TAG" = "v$VERSION"
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      # 本仓库的门禁全部可移植，所以这里跑全量，不像 dpg 那样需要 `--ignore-scripts`
+      # 来绕过「读本机 app.asar」的检查——我们没有那种检查。
+      - name: Typecheck, build, test, smoke
+        run: pnpm verify
+      - name: Release readiness
+        run: pnpm verify:release
+      - name: Check whether this version is already published
+        id: existing
+        run: |
+          set -euo pipefail
+          NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          set +e
+          OUTPUT="$(npm view "${NAME}@${VERSION}" version 2>&1)"
+          STATUS=$?
+          set -e
+          if [ "$STATUS" -eq 0 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif grep -q 'E404' <<<"$OUTPUT"; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s\n' "$OUTPUT" >&2
+            exit "$STATUS"
+          fi
+      - name: Publish through npm OIDC
+        if: steps.existing.outputs.skip != 'true'
+        # tarball 由**入库的** `lib/` 构成，绝不是本作业现场构建的那份：
+        # `files` 发的是 `lib`，而上面 `verify` 里的构建与「lib 与 src 同步」的
+        # 断言一起，使这一点是安全的。
+        run: npm publish --access public --provenance --tag latest --ignore-scripts
+      - name: Report idempotent skip
+        if: steps.existing.outputs.skip == 'true'
+        run: echo '该版本已存在，未重复发布。'

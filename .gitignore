@@ -1,5 +1,7 @@
 node_modules/
-lib/
+# `lib/` 是**提交进仓库**的：npm 的 tarball 由它构成，CI 也用它发布，
+# 这样发布的产物与仓库内容逐字节对应（provenance 才有意义）。
+# 改完源码后请 `pnpm build` 并一起提交，`verify:release` 会守住这一点。
 dist/
 *.log
 .DS_Store

@@ -21,6 +21,10 @@ export interface SwitchValues {
   readonly groupAutoExpand: boolean
   readonly reasoningAutoExpand: boolean
   readonly toolAutoExpand: boolean
+  /** 高度第一行：是否启用自定义高度。**永不被锁。** */
+  readonly groupHeightCustom: boolean
+  /** 高度第三行：历史轮次是否也应用。 */
+  readonly groupHeightHistory: boolean
 }
 
 /** 一行开关的渲染状态。 */
@@ -42,8 +46,20 @@ export interface SwitchRowState {
 export interface SelectRowState {
   /** 是否拒绝输入并变灰。 */
   readonly locked: boolean
-  /** 锁定原因：`none` 未锁 / `workGroup` 由操作组开关锁 / `own` 由本层开关锁。 */
-  readonly gate: 'none' | 'workGroup' | 'own'
+  /** 锁定原因：`none` 未锁 / `workGroup` 由操作组开关锁 / `own` 由本层开关锁 /
+   *  `heightCustom` 由高度第一行锁。 */
+  readonly gate: 'none' | 'workGroup' | 'own' | 'heightCustom'
+}
+
+/**
+ * 一行数字输入的渲染状态。
+ *
+ * 与 {@link SelectRowState} 同形，但单独命名：数字行的控件是 `<input>` 而不是
+ * 下拉，将来若两者的锁定规则分化，名字已经分开了。
+ */
+export interface NumberRowState {
+  readonly locked: boolean
+  readonly gate: 'none' | 'heightCustom'
 }
 
 /** 整张卡片的六行状态。 */
@@ -64,6 +80,19 @@ export interface SettingsCardState {
    * 这不是门控——该行照样可以操作，只是说明里要点名原因。
    */
   readonly inspectScopeIdle: 'none' | 'workGroup' | 'own'
+  /** 高度第一行（开关）。**永不锁死**，与操作组开关同级。 */
+  readonly heightCustom: SwitchRowState
+  /** 高度第二行（数字输入），由高度第一行锁。 */
+  readonly heightPercent: NumberRowState
+  /** 高度第三行（历史开关），由高度第一行锁。 */
+  readonly heightHistory: SelectRowState
+  /**
+   * 「操作组自动展开」关闭时，高度设置**可编辑但不生效**。
+   *
+   * 这不是门控——行照样能操作，只是说明文案要点名原因。与
+   * `inspectScopeIdle` 是同一套做法：不锁行，只在描述里解释。
+   */
+  readonly groupHeightIdle: boolean
 }
 
 /**
@@ -120,5 +149,26 @@ export function deriveSettingsCardState(values: SwitchValues): SettingsCardState
     inspectScopeIdle: !values.groupAutoExpand ? 'workGroup'
       : !values.toolAutoExpand ? 'own'
         : 'none',
+    // 高度第一行：与操作组开关同级——**自己能独立决策，永不被锁**。
+    //
+    // 理由：它保存的是用户偏好（「我想要 150%」这个意图），即使当前大段开关
+    // 关闭也仍然有效，关掉再打开时应原样回来。强行灰化会让用户以为设置丢了。
+    // 大段关闭时高度确实不生效，但那由 `groupHeightIdle` 用文案说明，不锁行
+    // ——与第六行（隐藏查看按钮）同一套做法。
+    heightCustom: {
+      checked: values.groupHeightCustom,
+      locked: false,
+      gatedText: false,
+    },
+    // 后两行只被高度第一行锁。注意这里**不复用** `timingGate()`：那个函数先看
+    // 大段开关再看本层，而高度三行与大段开关的锁定关系是「不锁、只说明」，
+    // 用它会错误地把 `workGroup` 报成 gate。
+    heightPercent: values.groupHeightCustom
+      ? { locked: false, gate: 'none' }
+      : { locked: true, gate: 'heightCustom' },
+    heightHistory: values.groupHeightCustom
+      ? { locked: false, gate: 'none' }
+      : { locked: true, gate: 'heightCustom' },
+    groupHeightIdle: !values.groupAutoExpand,
   }
 }

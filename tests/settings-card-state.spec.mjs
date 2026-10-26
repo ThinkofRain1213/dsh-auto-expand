@@ -14,13 +14,24 @@ import { deriveSettingsCardState } from '../src/client/settings-card-state.ts'
 
 /**
  * 构造一组开关值。
+ *
+ * 前三个是位置参数（既有 18 个用例都这么用）；高度两项用可选的第四参数给出，
+ * 默认关闭，因此既有用例无需改动。
  * @param {boolean} groupAutoExpand - 大段开关。
  * @param {boolean} reasoningAutoExpand - 思考行开关。
  * @param {boolean} toolAutoExpand - 工具行开关；默认与思考行同开。
- * @returns {object} 三个开关的值。
+ * @param {object} [height] - 高度两项；省略时为 `{ custom: false, history: false }`。
+ * @returns {object} 五个开关的值。
  */
-function values(groupAutoExpand, reasoningAutoExpand, toolAutoExpand = true) {
-  return { groupAutoExpand, reasoningAutoExpand, toolAutoExpand }
+function values(groupAutoExpand, reasoningAutoExpand, toolAutoExpand = true,
+  height = { custom: false, history: false }) {
+  return {
+    groupAutoExpand,
+    reasoningAutoExpand,
+    toolAutoExpand,
+    groupHeightCustom: height.custom,
+    groupHeightHistory: height.history,
+  }
 }
 
 test('两个都开：两行都可操作，描述是常规文案', () => {
@@ -191,4 +202,53 @@ test('隐藏范围：「运行中」档会因自动展开关闭而失效（idle�
 test('隐藏范围：思考开关不影响 idle', () => {
   assert.equal(deriveSettingsCardState(values(true, false, true)).inspectScopeIdle, 'none',
     '思考开关与工具的运行状态无关')
+})
+
+// ── 高度三行（P10）──────────────────────────────────────────────────────
+
+test('高度第一行永不被锁：与大段开关无关', () => {
+  for (const groupAutoExpand of [true, false]) {
+    const state = deriveSettingsCardState(values(groupAutoExpand, true, true,
+      { custom: true, history: false }))
+    assert.equal(state.heightCustom.locked, false,
+      `groupAutoExpand=${groupAutoExpand} 时高度第一行不应被锁`)
+  }
+})
+
+test('高度开关关闭：数字行与历史行都被 heightCustom 锁住', () => {
+  const state = deriveSettingsCardState(values(true, true, true,
+    { custom: false, history: false }))
+  assert.equal(state.heightPercent.locked, true)
+  assert.equal(state.heightPercent.gate, 'heightCustom')
+  assert.equal(state.heightHistory.locked, true)
+  assert.equal(state.heightHistory.gate, 'heightCustom')
+})
+
+test('高度开关开启：数字行与历史行解锁', () => {
+  const state = deriveSettingsCardState(values(true, true, true,
+    { custom: true, history: false }))
+  assert.equal(state.heightPercent.locked, false)
+  assert.equal(state.heightPercent.gate, 'none')
+  assert.equal(state.heightHistory.locked, false)
+})
+
+test('大段自动展开关闭时高度设置标记为不生效，但行不锁', () => {
+  const state = deriveSettingsCardState(values(false, true, true,
+    { custom: true, history: false }))
+  assert.equal(state.groupHeightIdle, true, '应标记不生效')
+  assert.equal(state.heightCustom.locked, false, '行仍可操作')
+  assert.equal(state.heightPercent.locked, false, '数字行不被大段开关锁')
+})
+
+test('大段与高度开关都开：高度设置生效', () => {
+  const state = deriveSettingsCardState(values(true, true, true,
+    { custom: true, history: false }))
+  assert.equal(state.groupHeightIdle, false)
+})
+
+test('高度开关关闭时，不因大段开关关闭而改用 workGroup 门控', () => {
+  // 优先级：heightCustom 是最近的控制者，应优先于 workGroup
+  const state = deriveSettingsCardState(values(false, true, true,
+    { custom: false, history: false }))
+  assert.equal(state.heightPercent.gate, 'heightCustom')
 })

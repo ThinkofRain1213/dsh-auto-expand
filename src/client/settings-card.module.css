@@ -128,44 +128,6 @@
 /* ── 数字输入行（高度设置）────────────────────────────────────────────── */
 
 /*
- * 控件组：警告图标 + 输入框，整体靠右。
- *
- * `flex: none` 让它不参与 `.row` 的伸缩，与 `.selector` / `Switch` 一样
- * 紧贴行的右端 —— 所有行的控件右边缘因此对齐在同一条线上。
- */
-.numGroup {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: none;
-}
-
-/*
- * 警告槽：**固定占位**，默认不可见。
- *
- * 不能用条件渲染（`{warning && <Icon/>}`），否则图标出现/消失时会把输入框
- * 推歪，行内元素左右跳动。用 `visibility: hidden` 而不是 `display: none`：
- * 前者保留占位，后者仍会让布局重排。
- */
-.warnSlot {
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  visibility: hidden;
-}
-
-.warnSlot.show {
-  visibility: visible;
-}
-
-.warnIcon {
-  color: var(--dsw-alias-state-warn-primary);
-}
-
-/*
  * 输入框的定位容器。
  *
  * **照抄 DPG 的 `.linkField`**（`dsh-project-groups/src/vendored/client/rows/
@@ -237,4 +199,106 @@
   font-size: 14px;
   line-height: 22px;
   color: var(--dsw-alias-label-tertiary);
+}
+
+/* ── 一级分组 ──────────────────────────────────────────────────────────── */
+
+/*
+ * 一个分组。**规格照抄官方 SubagentCard.module.css**：
+ * `section { padding: 16px 0 }`，标题 `13px / 600 / line-height 1.5`。
+ *
+ * 标题比普通行标题（`.title` 的 13/500）重一档，这是官方区分层级的唯一手段。
+ */
+.section {
+  min-width: 0;
+  padding: 16px 0;
+}
+
+/* 分组之间的分隔线，与官方字段之间那条同款（border-l2 是比 border-l4 更淡的一档）。 */
+.section + .section {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.heading {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* ── 两列并排 ──────────────────────────────────────────────────────────── */
+
+/*
+ * 官方 SubagentLimitsFields.module.css 的同一套 grid：
+ * 宽的时候两列，窄于 `2 * 220px + gap` 时自动堆成一列。
+ */
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 16px;
+}
+
+.column {
+  min-width: 0;
+}
+
+/* ── 纵向字段（输入框项）──────────────────────────────────────────────── */
+
+/*
+ * 官方 fields.module.css 的 `.field`：纵向三段，段间 6px。
+ *
+ * 与横向 `.row` 的区别是根本性的：这里标题、控件、说明各占一行，控件满宽；
+ * `.row` 是左右分栏，控件贴在右侧。
+ */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* 标题行：`label` 用 `flex: 1` 占满左侧，右侧留给状态（警告）。 */
+.fieldHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fieldLabel {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 纵向字段里的输入框满宽，不再用 `.numField` 的固定宽度。 */
+.field .numField {
+  width: 100%;
+}
+
+.field .numInput {
+  width: 100%;
+}
+
+/* 字段说明，在输入框下方。 */
+.fieldHint {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* 警告态：标题行右侧的橙色标记。 */
+.fieldWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-warn-primary);
 }

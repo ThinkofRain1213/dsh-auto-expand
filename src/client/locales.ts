@@ -83,6 +83,10 @@ export const zh = {
   heightHistoryDesc: '开启后，已结束轮次的操作组也使用上面的高度。',
   gatedByHeightCustom: '由「自定义展开高度」控制，现已关闭',
   heightIdle: '「自动展开操作组」已关闭，此设置暂不生效。',
+  groupWorkGroup: '操作组',
+  groupReasoning: '思考',
+  groupTool: '工具',
+  groupHeight: '高度',
 } as const
 
 /** 英文文案。 */
@@ -122,6 +126,10 @@ export const en = {
   heightHistoryDesc: 'Also apply the height above to process groups in finished turns.',
   gatedByHeightCustom: 'Controlled by "Custom expanded height"; currently off',
   heightIdle: '"Auto-expand process groups" is off, so this setting has no effect yet.',
+  groupWorkGroup: 'Process group',
+  groupReasoning: 'Reasoning',
+  groupTool: 'Tools',
+  groupHeight: 'Height',
 } as const
 
 /** 本命名空间的文案键。 */

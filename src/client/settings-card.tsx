@@ -39,7 +39,7 @@
  *
  * 不把依赖关系显示出来，UI 就在撒谎——用户会反复拨弄一个毫无反应的控件。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import {
   IconChevronDownOutlineRegular, IconInfoOutlineRegular, Menu, Switch,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -249,51 +249,58 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
     onCommit(next)
   }
   return (
-    <div className={css.row}>
-      <div className={css.rowText}>
-        <div className={locked === undefined ? css.title : `${css.title} ${css.gated}`}>{title}</div>
-        <div className={locked === undefined ? css.desc : `${css.desc} ${css.gated}`}>{description}</div>
+    /* 纵向三段式，照抄官方 `fields.module.css` 的 `.field`：
+       标题行（左 label + 右警告）→ 满宽输入框 → 描述在框下。 */
+    <div className={css.field}>
+      <div className={css.fieldHead}>
+        <div className={locked === undefined
+          ? css.fieldLabel
+          : `${css.fieldLabel} ${css.gated}`}>{title}</div>
+        {/* 警告在标题行右侧（官方 `.head` 里 `.badges` 的位置），
+            这样既不挤占输入框，也不与「输入出错」产生语义混淆。 */}
+        {showWarning && (
+          <span className={css.fieldWarning} role="img" aria-label={warning} title={warning}>
+            <IconInfoOutlineRegular size={14} />
+            {warning}
+          </span>
+        )}
       </div>
-      <div className={css.numGroup}>
-        {/* 固定占位：出警告时不把输入框推歪。 */}
-        {/* `title` 只服务鼠标；`role` + `aria-label` 让屏幕阅读器也收到提示。 */}
-        <span className={showWarning ? `${css.warnSlot} ${css.show}` : css.warnSlot}
-          {...showWarning ? { title: warning, role: 'img', 'aria-label': warning } : {}}>
-          {showWarning && <IconInfoOutlineRegular size={16} className={css.warnIcon} />}
-        </span>
-        {/* 结构与 DPG 的 `.linkField` 一致：容器只负责定位，边框/字号全在
-            `<input>` 上；`%` 绝对定位在框内右端（对应 DPG 的 `.linkStatus`）。 */}
-        <div className={css.numField}>
-          <input
-            className={css.numInput}
-            type="text"
-            inputMode="numeric"
-            value={draft}
-            placeholder={placeholder}
-            disabled={locked !== undefined}
-            aria-label={title}
-            {...locked === undefined ? {} : { title: locked.hint }}
-            onFocus={() => { setFocused(true) }}
-            onChange={(event) => {
-              // 强过滤：只留数字。负号、字母因此物理上不可输入。
-              //
-              // 全角数字必须**先归一化再过滤**：中文输入法打出的 `１５０`
-              // 不符合 `\d`，直接过滤会得到空串，而空串在失焦时被解释为
-              // 「用户主动清空」→ 写入 `null`（不设上限）。那比「打不进去」
-              // 严重一档：用户以为设了 150%，实际把组设成撑满屏幕。
-              setDraft(normalizeDigits(event.target.value))
-            }}
-            onBlur={() => { setFocused(false); commit() }}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return
-              event.preventDefault()
-              // Enter 也要失焦：否则 `focused` 仍为真，`useEffect` 不跟随
-              // Host 回滚，被拒绝的值会一直留在框里（见 `commit` 的注释）。
-              event.currentTarget.blur()
-            }}
-          />
-          <span className={css.numUnit}>{unit}</span>
-        </div>
+      {/* 结构与 DPG 的 `.linkField` 一致：容器只负责定位，边框/字号全在
+          `<input>` 上；`%` 绝对定位在框内右端（对应 DPG 的 `.linkStatus`）。 */}
+      <div className={css.numField}>
+        <input
+          className={css.numInput}
+          type="text"
+          inputMode="numeric"
+          value={draft}
+          placeholder={placeholder}
+          disabled={locked !== undefined}
+          aria-label={title}
+          {...locked === undefined ? {} : { title: locked.hint }}
+          onFocus={() => { setFocused(true) }}
+          onChange={(event) => {
+            // 强过滤：只留数字。负号、字母因此物理上不可输入。
+            //
+            // 全角数字必须**先归一化再过滤**：中文输入法打出的 `１５０`
+            // 不符合 `\d`，直接过滤会得到空串，而空串在失焦时被解释为
+            // 「用户主动清空」→ 写入 `null`（不设上限）。那比「打不进去」
+            // 严重一档：用户以为设了 150%，实际把组设成撑满屏幕。
+            setDraft(normalizeDigits(event.target.value))
+          }}
+          onBlur={() => { setFocused(false); commit() }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return
+            event.preventDefault()
+            // Enter 也要失焦：否则 `focused` 仍为真，`useEffect` 不跟随
+            // Host 回滚，被拒绝的值会一直留在框里（见 `commit` 的注释）。
+            event.currentTarget.blur()
+          }}
+        />
+        <span className={css.numUnit}>{unit}</span>
+      </div>
+      {/* 描述在输入框下方，是纵向字段与横向行最大的区别。 */}
+      <div className={locked === undefined ? css.fieldHint : `${css.fieldHint} ${css.gated}`}>
+        {description}
       </div>
     </div>
   )
@@ -312,6 +319,8 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
 export function SettingsCard({ t }: SettingsCardProps) {
   const settings = useAutoExpandSettings()
   const state = deriveSettingsCardState(settings)
+  /** 分组标题的 `id` 前缀，用于 `aria-labelledby` 与 `<h3>` 的配对。 */
+  const sectionId = useId()
   // 操作组关闭时，后四行共用这条说明。
   const gatedByWorkGroup = t('gatedByWorkGroup' as SettingsKey)
   /**
@@ -335,100 +344,133 @@ export function SettingsCard({ t }: SettingsCardProps) {
   const scopeOptions = INSPECT_BUTTON_HIDE_SCOPES.map(id => ({
     id, label: t(SCOPE_LABEL_KEYS[id]),
   }))
+  /**
+   * 渲染一个一级分组。
+   *
+   * 标题用 `<h3>` + `aria-labelledby`，与官方 `SubagentCard` 同款：
+   * 分组标题是 13px/600，比行标题（13px/500）重一档——这是区分层级的唯一手段。
+   * @param props - 分组标题、`useId` 派生的锚点、以及组内各行。
+   * @returns 一个分节。
+   */
+  const Section = ({ id, title, children }: {
+    readonly id: string
+    readonly title: string
+    readonly children: ReactNode
+  }) => (
+    <section className={css.section} aria-labelledby={id}>
+      <h3 className={css.heading} id={id}>{title}</h3>
+      {children}
+    </section>
+  )
   return (
     <div className={css.stack}>
-      <SwitchRow
-        title={t('workGroupTitle' as SettingsKey)}
-        description={t('workGroupDesc' as SettingsKey)}
-        checked={state.workGroup.checked}
-        onChange={next => { void setAutoExpandSetting(GROUP_AUTO_EXPAND_FIELD, next) }}
-        {...state.workGroup.locked ? { locked: { hint: gatedByWorkGroup } } : {}}
-      />
-      <SwitchRow
-        title={t('reasoningTitle' as SettingsKey)}
-        description={state.reasoning.gatedText ? gatedByWorkGroup : t('reasoningDesc' as SettingsKey)}
-        checked={state.reasoning.checked}
-        onChange={next => { void setAutoExpandSetting(REASONING_AUTO_EXPAND_FIELD, next) }}
-        {...state.reasoning.locked ? { locked: { hint: gatedByWorkGroup } } : {}}
-      />
-      <SelectRow
-        title={t('reasoningTimingTitle' as SettingsKey)}
-        description={state.reasoningTiming.gate === 'none'
-          ? t('reasoningTimingDesc' as SettingsKey)
-          : timingText(state.reasoningTiming.gate, 'gatedByReasoning')}
-        value={settings.reasoningCollapseTiming}
-        options={timingOptions}
-        onChange={next => { void setAutoExpandSetting(REASONING_COLLAPSE_TIMING_FIELD, next) }}
-        {...state.reasoningTiming.locked
-          ? { locked: { hint: timingText(state.reasoningTiming.gate, 'gatedByReasoning') } }
-          : {}}
-      />
-      <SwitchRow
-        title={t('toolTitle' as SettingsKey)}
-        description={state.tool.gatedText ? gatedByWorkGroup : t('toolDesc' as SettingsKey)}
-        checked={state.tool.checked}
-        onChange={next => { void setAutoExpandSetting(TOOL_AUTO_EXPAND_FIELD, next) }}
-        {...state.tool.locked ? { locked: { hint: gatedByWorkGroup } } : {}}
-      />
-      <SelectRow
-        title={t('toolTimingTitle' as SettingsKey)}
-        description={state.toolTiming.gate === 'none'
-          ? t('toolTimingDesc' as SettingsKey)
-          : timingText(state.toolTiming.gate, 'gatedByTool')}
-        value={settings.toolCollapseTiming}
-        options={timingOptions}
-        onChange={next => { void setAutoExpandSetting(TOOL_COLLAPSE_TIMING_FIELD, next) }}
-        {...state.toolTiming.locked
-          ? { locked: { hint: timingText(state.toolTiming.gate, 'gatedByTool') } }
-          : {}}
-      />
-      {/* P9：查看按钮的隐藏范围。放在最后——它不参与"自动展开"那条主线，
-          而是对官方入口的一次可选收纳。**永不锁死**（独立设置）。
+      <Section id={`${sectionId}-workgroup`} title={t('groupWorkGroup' as SettingsKey)}>
+        <SwitchRow
+          title={t('workGroupTitle' as SettingsKey)}
+          description={t('workGroupDesc' as SettingsKey)}
+          checked={state.workGroup.checked}
+          onChange={next => { void setAutoExpandSetting(GROUP_AUTO_EXPAND_FIELD, next) }}
+          {...state.workGroup.locked ? { locked: { hint: gatedByWorkGroup } } : {}}
+        />
+      </Section>
 
-          说明随「当前档位 × 是否失效」变化：
-          - 档位是 off/all → 基础说明（只提"只影响工具行"）；
-          - 档位是 current → 说明收起后交回官方；若此时自动展开本身关着，
-            改说"等同于不隐藏"并点名是哪个开关 —— 不锁行，只解释。 */}
-      <SelectRow
-        title={t('inspectScopeTitle' as SettingsKey)}
-        description={scopeDescription(settings.inspectButtonHideScope, state.inspectScopeIdle, t)}
-        value={settings.inspectButtonHideScope}
-        options={scopeOptions}
-        onChange={next => { void setAutoExpandSetting(INSPECT_BUTTON_HIDE_SCOPE_FIELD, next) }}
-      />
-      {/* 高度三行（第七~九行）。
-          第一行永不锁死（它自己能独立决策）；大段开关关闭时它仍可编辑，
-          只是用描述说明「暂不生效」——与第六行同一套做法。 */}
-      <SwitchRow
-        title={t('heightCustomTitle' as SettingsKey)}
-        description={state.groupHeightIdle
-          ? t('heightIdle' as SettingsKey)
-          : t('heightCustomDesc' as SettingsKey)}
-        checked={state.heightCustom.checked}
-        onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_CUSTOM_FIELD, next) }}
-      />
-      <NumberRow
-        title={t('heightPercentTitle' as SettingsKey)}
-        description={state.heightPercent.gate === 'heightCustom'
-          ? t('gatedByHeightCustom' as SettingsKey)
-          : t('heightPercentDesc' as SettingsKey)}
-        value={settings.groupHeightPercent}
-        placeholder={t('heightPercentPlaceholder' as SettingsKey)}
-        warning={t('heightPercentTooSmall' as SettingsKey)}
-        onCommit={next => { void setAutoExpandSetting(GROUP_HEIGHT_PERCENT_FIELD, next) }}
-        {...state.heightPercent.locked ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } } : {}}
-      />
-      <SwitchRow
-        title={t('heightHistoryTitle' as SettingsKey)}
-        description={state.heightHistory.gate === 'heightCustom'
-          ? t('gatedByHeightCustom' as SettingsKey)
-          : t('heightHistoryDesc' as SettingsKey)}
-        checked={state.heightHistory.checked}
-        onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_HISTORY_FIELD, next) }}
-        {...state.heightHistory.locked
-          ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } }
-          : {}}
-      />
+      <Section id={`${sectionId}-reasoning`} title={t('groupReasoning' as SettingsKey)}>
+        <SwitchRow
+          title={t('reasoningTitle' as SettingsKey)}
+          description={state.reasoning.gatedText ? gatedByWorkGroup : t('reasoningDesc' as SettingsKey)}
+          checked={state.reasoning.checked}
+          onChange={next => { void setAutoExpandSetting(REASONING_AUTO_EXPAND_FIELD, next) }}
+          {...state.reasoning.locked ? { locked: { hint: gatedByWorkGroup } } : {}}
+        />
+        <SelectRow
+          title={t('reasoningTimingTitle' as SettingsKey)}
+          description={state.reasoningTiming.gate === 'none'
+            ? t('reasoningTimingDesc' as SettingsKey)
+            : timingText(state.reasoningTiming.gate, 'gatedByReasoning')}
+          value={settings.reasoningCollapseTiming}
+          options={timingOptions}
+          onChange={next => { void setAutoExpandSetting(REASONING_COLLAPSE_TIMING_FIELD, next) }}
+          {...state.reasoningTiming.locked
+            ? { locked: { hint: timingText(state.reasoningTiming.gate, 'gatedByReasoning') } }
+            : {}}
+        />
+      </Section>
+
+      <Section id={`${sectionId}-tool`} title={t('groupTool' as SettingsKey)}>
+        <SwitchRow
+          title={t('toolTitle' as SettingsKey)}
+          description={state.tool.gatedText ? gatedByWorkGroup : t('toolDesc' as SettingsKey)}
+          checked={state.tool.checked}
+          onChange={next => { void setAutoExpandSetting(TOOL_AUTO_EXPAND_FIELD, next) }}
+          {...state.tool.locked ? { locked: { hint: gatedByWorkGroup } } : {}}
+        />
+        <SelectRow
+          title={t('toolTimingTitle' as SettingsKey)}
+          description={state.toolTiming.gate === 'none'
+            ? t('toolTimingDesc' as SettingsKey)
+            : timingText(state.toolTiming.gate, 'gatedByTool')}
+          value={settings.toolCollapseTiming}
+          options={timingOptions}
+          onChange={next => { void setAutoExpandSetting(TOOL_COLLAPSE_TIMING_FIELD, next) }}
+          {...state.toolTiming.locked
+            ? { locked: { hint: timingText(state.toolTiming.gate, 'gatedByTool') } }
+            : {}}
+        />
+        {/* P9：查看按钮的隐藏范围。它只影响工具行，因此归在「工具」组。
+            **永不锁死**（独立设置）。 */}
+        <SelectRow
+          title={t('inspectScopeTitle' as SettingsKey)}
+          description={scopeDescription(settings.inspectButtonHideScope, state.inspectScopeIdle, t)}
+          value={settings.inspectButtonHideScope}
+          options={scopeOptions}
+          onChange={next => { void setAutoExpandSetting(INSPECT_BUTTON_HIDE_SCOPE_FIELD, next) }}
+        />
+      </Section>
+
+      <Section id={`${sectionId}-height`} title={t('groupHeight' as SettingsKey)}>
+        {/* 高度开关永不锁死（它自己能独立决策）；大段开关关闭时它仍可编辑，
+            只是用描述说明「暂不生效」——与第六行同一套做法。 */}
+        <SwitchRow
+          title={t('heightCustomTitle' as SettingsKey)}
+          description={state.groupHeightIdle
+            ? t('heightIdle' as SettingsKey)
+            : t('heightCustomDesc' as SettingsKey)}
+          checked={state.heightCustom.checked}
+          onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_CUSTOM_FIELD, next) }}
+        />
+        {/* 后两项并排：左侧纵向字段（标题/警告 + 满宽框 + 描述），
+            右侧横向开关行。窄屏时 grid 自动堆成一列。 */}
+        <div className={css.columns}>
+          <div className={css.column}>
+            <NumberRow
+              title={t('heightPercentTitle' as SettingsKey)}
+              description={state.heightPercent.gate === 'heightCustom'
+                ? t('gatedByHeightCustom' as SettingsKey)
+                : t('heightPercentDesc' as SettingsKey)}
+              value={settings.groupHeightPercent}
+              placeholder={t('heightPercentPlaceholder' as SettingsKey)}
+              warning={t('heightPercentTooSmall' as SettingsKey)}
+              onCommit={next => { void setAutoExpandSetting(GROUP_HEIGHT_PERCENT_FIELD, next) }}
+              {...state.heightPercent.locked
+                ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } }
+                : {}}
+            />
+          </div>
+          <div className={css.column}>
+            <SwitchRow
+              title={t('heightHistoryTitle' as SettingsKey)}
+              description={state.heightHistory.gate === 'heightCustom'
+                ? t('gatedByHeightCustom' as SettingsKey)
+                : t('heightHistoryDesc' as SettingsKey)}
+              checked={state.heightHistory.checked}
+              onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_HISTORY_FIELD, next) }}
+              {...state.heightHistory.locked
+                ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } }
+                : {}}
+            />
+          </div>
+        </div>
+      </Section>
     </div>
   )
 }

@@ -89,6 +89,14 @@ export type InspectButtonHideScope = typeof INSPECT_BUTTON_HIDE_SCOPES[number]
  */
 export const DEFAULT_INSPECT_BUTTON_HIDE_SCOPE: InspectButtonHideScope = 'off'
 
+/** 操作组自定义高度的字段名（与浏览器半边 `group-height.ts` 同源）。 */
+export const GROUP_HEIGHT_CUSTOM_FIELD = 'groupHeightCustom'
+export const GROUP_HEIGHT_PERCENT_FIELD = 'groupHeightPercent'
+export const GROUP_HEIGHT_HISTORY_FIELD = 'groupHeightHistory'
+
+/** 高度百分比的默认值：100 = 官方原公式，逐像素相同。 */
+export const DEFAULT_GROUP_HEIGHT_PERCENT = 100
+
 /** 本插件的持久化设置。 */
 export interface AutoExpandSettings {
   /** 当前运行的 process group body 是否自动展开。 */
@@ -103,6 +111,12 @@ export interface AutoExpandSettings {
   toolCollapseTiming: ToolCollapseTiming
   /** 工具行「查看」按钮的隐藏范围。 */
   inspectButtonHideScope: InspectButtonHideScope
+  /** 操作组是否使用自定义高度。 */
+  groupHeightCustom: boolean
+  /** 自定义高度百分比；`null` = 留空 = **不设上限**。 */
+  groupHeightPercent: number | null
+  /** 历史轮次的操作组是否也应用自定义高度。 */
+  groupHeightHistory: boolean
 }
 
 /** 运行时设置投影到浏览器。 */
@@ -113,6 +127,10 @@ export interface Config {
   reasoningCollapseTiming: Volatile<ReasoningCollapseTiming>
   toolCollapseTiming: Volatile<ToolCollapseTiming>
   inspectButtonHideScope: Volatile<InspectButtonHideScope>
+  groupHeightCustom: Volatile<boolean>
+  /** `null` 是合法值：表示用户留空 = 不设上限。 */
+  groupHeightPercent: Volatile<number | null>
+  groupHeightHistory: Volatile<boolean>
 }
 
 /**
@@ -133,6 +151,13 @@ export const Config = z.object({
     .default(DEFAULT_TOOL_COLLAPSE_TIMING).volatile(),
   [INSPECT_BUTTON_HIDE_SCOPE_FIELD]: z.union([...INSPECT_BUTTON_HIDE_SCOPES])
     .default(DEFAULT_INSPECT_BUTTON_HIDE_SCOPE).volatile(),
+  [GROUP_HEIGHT_CUSTOM_FIELD]: z.boolean().default(false).volatile(),
+  // ⚠️ 这个字段**不能**加 `.default()`：实测
+  // `union([z.natural(), z.const(null)]).default(100)` 会把用户存的 `null`
+  // （= 留空 = 不设上限）静默改写成 100，直接摧毁该功能的语义。
+  // 「从未设置」由 `undefined` 表达，默认值由客户端的 `DEFAULT_SETTINGS` 提供。
+  [GROUP_HEIGHT_PERCENT_FIELD]: z.union([z.natural(), z.const(null)]).volatile(),
+  [GROUP_HEIGHT_HISTORY_FIELD]: z.boolean().default(false).volatile(),
 })
 
 /**

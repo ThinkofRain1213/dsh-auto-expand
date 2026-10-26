@@ -19,6 +19,10 @@ import type { CollapseTiming } from './collapse-timing.ts'
 import {
   DEFAULT_INSPECT_BUTTON_HIDE_SCOPE, type InspectButtonHideScope,
 } from './inspect-button-scope.ts'
+import {
+  DEFAULT_GROUP_HEIGHT_PERCENT,
+  GROUP_HEIGHT_CUSTOM_FIELD, GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD,
+} from './group-height.ts'
 
 /** 本插件设置命名空间（= Host 半边在 `cordis.patch.yml` 里的 entry id）。 */
 export const AUTO_EXPAND_NAMESPACE = 'auto-expand'
@@ -30,6 +34,9 @@ export const TOOL_AUTO_EXPAND_FIELD = 'toolAutoExpand'
 export const REASONING_COLLAPSE_TIMING_FIELD = 'reasoningCollapseTiming'
 export const TOOL_COLLAPSE_TIMING_FIELD = 'toolCollapseTiming'
 export const INSPECT_BUTTON_HIDE_SCOPE_FIELD = 'inspectButtonHideScope'
+export {
+  GROUP_HEIGHT_CUSTOM_FIELD, GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD,
+}
 
 /** 默认设置：三个开关默认全开；两个时机默认「下一批操作出现时」；查看按钮不隐藏。 */
 export const DEFAULT_SETTINGS: AutoExpandSettings = {
@@ -39,6 +46,9 @@ export const DEFAULT_SETTINGS: AutoExpandSettings = {
   reasoningCollapseTiming: 'next-node',
   toolCollapseTiming: 'next-node',
   inspectButtonHideScope: DEFAULT_INSPECT_BUTTON_HIDE_SCOPE,
+  groupHeightCustom: false,
+  groupHeightPercent: DEFAULT_GROUP_HEIGHT_PERCENT,
+  groupHeightHistory: false,
 }
 
 /** 本插件设置的可观察快照。 */
@@ -52,6 +62,12 @@ export interface AutoExpandSettings {
   readonly toolCollapseTiming: CollapseTiming
   /** 工具行「查看」按钮的隐藏范围。 */
   readonly inspectButtonHideScope: InspectButtonHideScope
+  /** 操作组是否使用自定义高度。 */
+  readonly groupHeightCustom: boolean
+  /** 自定义高度百分比；`null` = 留空 = **不设上限**。 */
+  readonly groupHeightPercent: number | null
+  /** 历史轮次的操作组是否也应用自定义高度。 */
+  readonly groupHeightHistory: boolean
 }
 
 /** `configForms.get()` 返回的最小契约（只取本插件用到的部分）。 */
@@ -93,6 +109,13 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
       toolCollapseTiming: value?.toolCollapseTiming ?? DEFAULT_SETTINGS.toolCollapseTiming,
       inspectButtonHideScope:
         value?.inspectButtonHideScope ?? DEFAULT_SETTINGS.inspectButtonHideScope,
+      groupHeightCustom: value?.groupHeightCustom ?? DEFAULT_SETTINGS.groupHeightCustom,
+      // 这里**不能**用 `?? DEFAULT`：那会把用户明确清空（`null`）读成 100，
+      // 「留空 = 不设上限」这个语义就丢了。只有 `undefined`（从未设置）才回落默认。
+      groupHeightPercent: value?.groupHeightPercent === undefined
+        ? DEFAULT_SETTINGS.groupHeightPercent
+        : value.groupHeightPercent,
+      groupHeightHistory: value?.groupHeightHistory ?? DEFAULT_SETTINGS.groupHeightHistory,
     }
   }
 
@@ -104,7 +127,10 @@ export function attachSettingsForm(form: ConfigFormLike): () => void {
       && next.toolAutoExpand === current.toolAutoExpand
       && next.reasoningCollapseTiming === current.reasoningCollapseTiming
       && next.toolCollapseTiming === current.toolCollapseTiming
-      && next.inspectButtonHideScope === current.inspectButtonHideScope) return
+      && next.inspectButtonHideScope === current.inspectButtonHideScope
+      && next.groupHeightCustom === current.groupHeightCustom
+      && next.groupHeightPercent === current.groupHeightPercent
+      && next.groupHeightHistory === current.groupHeightHistory) return
     settingsSource.set(next)
   }
 

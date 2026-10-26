@@ -69,5 +69,10 @@ jobs:
           if [ -n "$(git status --porcelain -- lib/)" ]; then
             echo "::error::lib/ 与 src/ 不同步，请在本机跑 pnpm build 并提交 lib/"
             git status --porcelain -- lib/
+            echo "--- 字节数 ---"
+            wc -c lib/*.js lib/*.js.map 2>/dev/null || true
+            echo "--- diff（前 80 行）---"
+            git diff --stat -- lib/ || true
+            git diff -- lib/ | head -80 || true
             exit 1
           fi

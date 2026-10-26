@@ -1,5 +1,5 @@
 /**
- * 设置卡片五行（三个开关 + 两个收起时机）的状态推导。
+ * 设置卡片九行的状态推导：三个开关 + 两个收起时机 + 一个隐藏范围 + 高度三行。
  *
  * 单独成模块的理由与 `settings-write.ts` / `scroll-align.ts` 相同：这是有分支的
  * 判定逻辑，必须能被直接断言。设置卡片的 DOM 渲染需要 React 与 slot 运行时，
@@ -62,7 +62,20 @@ export interface NumberRowState {
   readonly gate: 'none' | 'heightCustom'
 }
 
-/** 整张卡片的六行状态。 */
+/**
+ * 被门控的**开关行**：既带值（`checked`）又带锁定原因。
+ *
+ * `SwitchRowState` 只有 `locked` 没有 `gate`，而高度第三行需要知道「被谁锁」；
+ * `SelectRowState` 有 `gate` 却没有 `checked`，而且是下拉的语义。
+ * 两者都不合适，因此单独一个类型。
+ */
+export interface GatedSwitchRowState {
+  readonly checked: boolean
+  readonly locked: boolean
+  readonly gate: 'none' | 'heightCustom'
+}
+
+/** 整张卡片的九行状态。 */
 export interface SettingsCardState {
   readonly workGroup: SwitchRowState
   readonly reasoning: SwitchRowState
@@ -84,8 +97,14 @@ export interface SettingsCardState {
   readonly heightCustom: SwitchRowState
   /** 高度第二行（数字输入），由高度第一行锁。 */
   readonly heightPercent: NumberRowState
-  /** 高度第三行（历史开关），由高度第一行锁。 */
-  readonly heightHistory: SelectRowState
+  /**
+   * 高度第三行（**开关**，不是下拉），由高度第一行锁。
+   *
+   * 用 {@link GatedSwitchRowState} 而不是 `SelectRowState`：后者是下拉行的类型，
+   * 用在开关上会让后来者以为这一行是下拉。`checked` 也在这里给出，
+   * 避免「值从 settings 取、状态从这里取」的双来源。
+   */
+  readonly heightHistory: GatedSwitchRowState
   /**
    * 「操作组自动展开」关闭时，高度设置**可编辑但不生效**。
    *
@@ -96,7 +115,7 @@ export interface SettingsCardState {
 }
 
 /**
- * 推导五行的渲染状态。
+ * 推导九行的渲染状态。
  *
  * 四条规则：
  *
@@ -108,7 +127,7 @@ export interface SettingsCardState {
  *     用户之前的选择原样回来（DPG 的 `injectDoc` 行是同样的处理）。
  *
  * @param values - 当前设置。
- * @returns 五行各自的渲染状态。
+ * @returns 九行各自的渲染状态。
  */
 export function deriveSettingsCardState(values: SwitchValues): SettingsCardState {
   // 开关行的锁定条件：都渲染在 group body 内部，操作组不开就无从生效。
@@ -166,9 +185,14 @@ export function deriveSettingsCardState(values: SwitchValues): SettingsCardState
     heightPercent: values.groupHeightCustom
       ? { locked: false, gate: 'none' }
       : { locked: true, gate: 'heightCustom' },
-    heightHistory: values.groupHeightCustom
-      ? { locked: false, gate: 'none' }
-      : { locked: true, gate: 'heightCustom' },
+    // `checked` 从这里给出（读 `values.groupHeightHistory`），而不是让渲染层
+    // 直接从 settings 取 —— 那样这一行就有两个数据来源，`SwitchValues` 里的
+    // `groupHeightHistory` 会变成一个没人读的悬空字段。
+    heightHistory: {
+      checked: values.groupHeightHistory,
+      locked: !values.groupHeightCustom,
+      gate: values.groupHeightCustom ? 'none' : 'heightCustom',
+    },
     groupHeightIdle: !values.groupAutoExpand,
   }
 }

@@ -115,3 +115,25 @@ export function groupHeight(input: GroupHeightInput): GroupHeightStyle | null {
   if (input.percent === null) return { maxHeight: 'none', overflowY: 'visible' }
   return { maxHeight: `min(${input.percent * 4}px, ${input.percent * 0.5}vh)` }
 }
+
+/**
+ * 把输入框里的文本归一化成纯数字串。
+ *
+ * 两步，顺序不能反：
+ *
+ * 1. **全角数字转半角**。中文输入法打出的 `１５０` 属于 `U+FF10..U+FF19`，
+ *    不匹配 `\d`。若直接过滤，`１５０` 会变成空串，而空串在失焦时表示
+ *    「用户主动清空」→ 写入 `null`（不设上限）——用户以为设了 150%，
+ *    实际把操作组设成撑满屏幕。这个后果比「打不进去」严重一档。
+ * 2. **只保留 ASCII 数字**。负号、字母、小数点、逗号都在这一步丢掉。
+ *
+ * 小数点被丢掉是有意的：Host 的 `z.natural()` 拒绝小数，让 UI 先挡下来，
+ * 避免「输入 2.5 得到 25」这种静默篡改。
+ * @param raw - 输入框的原始文本。
+ * @returns 只含 ASCII 数字的字符串。
+ */
+export function normalizeDigits(raw: string): string {
+  const halfWidth = raw.replace(/[\uFF10-\uFF19]/g,
+    char => String.fromCharCode(char.charCodeAt(0) - 0xFF10 + 0x30))
+  return halfWidth.replace(/[^\d]/g, '')
+}

@@ -252,3 +252,11 @@ test('高度开关关闭时，不因大段开关关闭而改用 workGroup 门控
     { custom: false, history: false }))
   assert.equal(state.heightPercent.gate, 'heightCustom')
 })
+
+test('高度第三行的 checked 来自状态推导，不是直接读设置', () => {
+  const off = deriveSettingsCardState(values(true, true, true, { custom: true, history: false }))
+  assert.equal(off.heightHistory.checked, false)
+  const on = deriveSettingsCardState(values(true, true, true, { custom: true, history: true }))
+  assert.equal(on.heightHistory.checked, true,
+    '若渲染层直接从 settings 取值，这个字段就成了悬空数据源')
+})

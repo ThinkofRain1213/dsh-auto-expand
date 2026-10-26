@@ -9,12 +9,12 @@
  * 样式严格遵循 DPG 的设置页规范（`spec/SETTINGS-SPEC.md`）：
  *  - `.stack` 包装器是必需的：官方 `detailSection` 容器给子元素 12px gap，
  *    若本卡片返回 Fragment，所有块会被塞进那个间隔；
- *  - **五行，没有分组标题**（页面顶部已有插件名与描述）；
+ *  - **九行，没有分组标题**（页面顶部已有插件名与描述）；
  *  - 字体两级：`.title` 13/500、`.desc` 12/400；
  *  - 行内边距 16px 0，标题↔描述 6px；
  *  - 开关用官方 `Switch`，下拉用官方 `Menu` + 自定义 anchor。
  *
- * ## 五行按三组排列
+ * ## 九行按四组排列
  *
  * ```
  * 1 Switch  自动展开操作组
@@ -22,6 +22,10 @@
  * 3 下拉    思考收起时机
  * 4 Switch  自动展开工具结果
  * 5 下拉    工具收起时机
+ * 6 下拉    隐藏查看按钮
+ * 7 Switch  自定义展开高度
+ * 8 数字    展开高度
+ * 9 Switch  历史轮次也应用
  * ```
  *
  * 同一对象的开关与时机**相邻**，读起来就是「这一层开不开、什么时候收」。
@@ -42,7 +46,15 @@ import {
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // 引入 `plugins.bundle.config` 的 SlotMap 声明（type-only，无运行时依赖）。
 import type {} from './contract/slot-declarations.ts'
-import { setAutoExpandSetting, useAutoExpandSettings } from './settings.ts'
+import {
+  GROUP_AUTO_EXPAND_FIELD,
+  GROUP_HEIGHT_CUSTOM_FIELD, GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD,
+  INSPECT_BUTTON_HIDE_SCOPE_FIELD,
+  REASONING_AUTO_EXPAND_FIELD, REASONING_COLLAPSE_TIMING_FIELD,
+  TOOL_AUTO_EXPAND_FIELD, TOOL_COLLAPSE_TIMING_FIELD,
+  setAutoExpandSetting, useAutoExpandSettings,
+} from './settings.ts'
+import { normalizeDigits } from './group-height.ts'
 import { deriveSettingsCardState, type SelectRowState } from './settings-card-state.ts'
 import { COLLAPSE_TIMINGS, type CollapseTiming } from './collapse-timing.ts'
 import { INSPECT_BUTTON_HIDE_SCOPES, type InspectButtonHideScope } from './inspect-button-scope.ts'
@@ -215,9 +227,24 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
    * 提交草稿。
    *
    * 空草稿提交 `null`（= 不设上限），这是本控件的核心语义，不偷偷填回 100。
+   *
+   * ## 提交后必须把草稿对齐到权威值
+   *
+   * `writeOptimistic` 是「先同步改快照、再异步写 Host、失败时回滚」。若提交后
+   * 只依赖 `useEffect` 同步草稿，会有两个洞：
+   *
+   * 1. **Enter 提交不让输入框失焦**，`focused` 仍为真，`useEffect` 直接 return，
+   *    于是 Host 拒绝后输入框仍显示那个**被拒绝**的值，看起来像保存成功了；
+   * 2. `next === value` 的相等短路会让 `"007"` / `"000"` 这类草稿永远不回正
+   *    （`Number('007') === 7 === value`），输入框长期显示 `007` 而语义是 `7`。
+   *
+   * 因此这里显式把草稿写回 `value` 的规范形式。Host 拒绝时 `value` 会由
+   * `writeOptimistic` 回滚成旧值，下一帧的 `useEffect` 再把草稿拉回旧值。
    */
   const commit = (): void => {
     const next = draft === '' ? null : Number(draft)
+    // 无论是否真的写 Host，草稿都先规范化（处理 "007"、前后空格等）。
+    setDraft(next === null ? '' : String(next))
     if (next === value) return
     onCommit(next)
   }
@@ -229,8 +256,9 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
       </div>
       <div className={css.numGroup}>
         {/* 固定占位：出警告时不把输入框推歪。 */}
+        {/* `title` 只服务鼠标；`role` + `aria-label` 让屏幕阅读器也收到提示。 */}
         <span className={showWarning ? `${css.warnSlot} ${css.show}` : css.warnSlot}
-          {...showWarning ? { title: warning } : {}}>
+          {...showWarning ? { title: warning, role: 'img', 'aria-label': warning } : {}}>
           {showWarning && <IconInfoOutlineRegular size={16} className={css.warnIcon} />}
         </span>
         <div className={locked === undefined ? css.numWrap : `${css.numWrap} ${css.locked}`}>
@@ -245,14 +273,21 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
             {...locked === undefined ? {} : { title: locked.hint }}
             onFocus={() => { setFocused(true) }}
             onChange={(event) => {
-              // 强过滤：非数字字符敲不进去。负数因此物理上不可输入。
-              setDraft(event.target.value.replace(/[^\d]/g, ''))
+              // 强过滤：只留数字。负号、字母因此物理上不可输入。
+              //
+              // 全角数字必须**先归一化再过滤**：中文输入法打出的 `１５０`
+              // 不符合 `\d`，直接过滤会得到空串，而空串在失焦时被解释为
+              // 「用户主动清空」→ 写入 `null`（不设上限）。那比「打不进去」
+              // 严重一档：用户以为设了 150%，实际把组设成撑满屏幕。
+              setDraft(normalizeDigits(event.target.value))
             }}
             onBlur={() => { setFocused(false); commit() }}
             onKeyDown={(event) => {
               if (event.key !== 'Enter') return
               event.preventDefault()
-              commit()
+              // Enter 也要失焦：否则 `focused` 仍为真，`useEffect` 不跟随
+              // Host 回滚，被拒绝的值会一直留在框里（见 `commit` 的注释）。
+              event.currentTarget.blur()
             }}
           />
           <span className={css.unit}>{unit}</span>
@@ -304,14 +339,14 @@ export function SettingsCard({ t }: SettingsCardProps) {
         title={t('workGroupTitle' as SettingsKey)}
         description={t('workGroupDesc' as SettingsKey)}
         checked={state.workGroup.checked}
-        onChange={next => { void setAutoExpandSetting('groupAutoExpand', next) }}
+        onChange={next => { void setAutoExpandSetting(GROUP_AUTO_EXPAND_FIELD, next) }}
         {...state.workGroup.locked ? { locked: { hint: gatedByWorkGroup } } : {}}
       />
       <SwitchRow
         title={t('reasoningTitle' as SettingsKey)}
         description={state.reasoning.gatedText ? gatedByWorkGroup : t('reasoningDesc' as SettingsKey)}
         checked={state.reasoning.checked}
-        onChange={next => { void setAutoExpandSetting('reasoningAutoExpand', next) }}
+        onChange={next => { void setAutoExpandSetting(REASONING_AUTO_EXPAND_FIELD, next) }}
         {...state.reasoning.locked ? { locked: { hint: gatedByWorkGroup } } : {}}
       />
       <SelectRow
@@ -321,7 +356,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
           : timingText(state.reasoningTiming.gate, 'gatedByReasoning')}
         value={settings.reasoningCollapseTiming}
         options={timingOptions}
-        onChange={next => { void setAutoExpandSetting('reasoningCollapseTiming', next) }}
+        onChange={next => { void setAutoExpandSetting(REASONING_COLLAPSE_TIMING_FIELD, next) }}
         {...state.reasoningTiming.locked
           ? { locked: { hint: timingText(state.reasoningTiming.gate, 'gatedByReasoning') } }
           : {}}
@@ -330,7 +365,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
         title={t('toolTitle' as SettingsKey)}
         description={state.tool.gatedText ? gatedByWorkGroup : t('toolDesc' as SettingsKey)}
         checked={state.tool.checked}
-        onChange={next => { void setAutoExpandSetting('toolAutoExpand', next) }}
+        onChange={next => { void setAutoExpandSetting(TOOL_AUTO_EXPAND_FIELD, next) }}
         {...state.tool.locked ? { locked: { hint: gatedByWorkGroup } } : {}}
       />
       <SelectRow
@@ -340,7 +375,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
           : timingText(state.toolTiming.gate, 'gatedByTool')}
         value={settings.toolCollapseTiming}
         options={timingOptions}
-        onChange={next => { void setAutoExpandSetting('toolCollapseTiming', next) }}
+        onChange={next => { void setAutoExpandSetting(TOOL_COLLAPSE_TIMING_FIELD, next) }}
         {...state.toolTiming.locked
           ? { locked: { hint: timingText(state.toolTiming.gate, 'gatedByTool') } }
           : {}}
@@ -357,7 +392,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
         description={scopeDescription(settings.inspectButtonHideScope, state.inspectScopeIdle, t)}
         value={settings.inspectButtonHideScope}
         options={scopeOptions}
-        onChange={next => { void setAutoExpandSetting('inspectButtonHideScope', next) }}
+        onChange={next => { void setAutoExpandSetting(INSPECT_BUTTON_HIDE_SCOPE_FIELD, next) }}
       />
       {/* 高度三行（第七~九行）。
           第一行永不锁死（它自己能独立决策）；大段开关关闭时它仍可编辑，
@@ -368,7 +403,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
           ? t('heightIdle' as SettingsKey)
           : t('heightCustomDesc' as SettingsKey)}
         checked={state.heightCustom.checked}
-        onChange={next => { void setAutoExpandSetting('groupHeightCustom', next) }}
+        onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_CUSTOM_FIELD, next) }}
       />
       <NumberRow
         title={t('heightPercentTitle' as SettingsKey)}
@@ -378,7 +413,7 @@ export function SettingsCard({ t }: SettingsCardProps) {
         value={settings.groupHeightPercent}
         placeholder={t('heightPercentPlaceholder' as SettingsKey)}
         warning={t('heightPercentTooSmall' as SettingsKey)}
-        onCommit={next => { void setAutoExpandSetting('groupHeightPercent', next) }}
+        onCommit={next => { void setAutoExpandSetting(GROUP_HEIGHT_PERCENT_FIELD, next) }}
         {...state.heightPercent.locked ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } } : {}}
       />
       <SwitchRow
@@ -386,8 +421,8 @@ export function SettingsCard({ t }: SettingsCardProps) {
         description={state.heightHistory.gate === 'heightCustom'
           ? t('gatedByHeightCustom' as SettingsKey)
           : t('heightHistoryDesc' as SettingsKey)}
-        checked={settings.groupHeightHistory}
-        onChange={next => { void setAutoExpandSetting('groupHeightHistory', next) }}
+        checked={state.heightHistory.checked}
+        onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_HISTORY_FIELD, next) }}
         {...state.heightHistory.locked
           ? { locked: { hint: t('gatedByHeightCustom' as SettingsKey) } }
           : {}}

@@ -16,6 +16,7 @@ import {
   DEFAULT_GROUP_HEIGHT_PERCENT,
   GROUP_HEIGHT_CUSTOM_FIELD, GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD,
   groupHeight,
+  normalizeDigits,
 } from '../src/client/group-height.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -135,4 +136,32 @@ test('settings.ts 与 group-height.ts 的三处字段名必须逐字相同', () 
     assert.ok(match, `settings.ts 必须显式声明 ${name} 字面量（不能只 re-export）`)
     assert.equal(match[1], value, `${name} 两处取值必须相同`)
   }
+})
+
+// ── normalizeDigits：输入归一化 ─────────────────────────────────────────
+
+test('全角数字转半角（中文输入法打出的 １５０）', () => {
+  assert.equal(normalizeDigits('１５０'), '150')
+})
+
+test('全角与半角混排也能正确归一', () => {
+  assert.equal(normalizeDigits('1５0'), '150')
+})
+
+test('字母、负号、小数点、逗号都被过滤掉', () => {
+  assert.equal(normalizeDigits('abc'), '')
+  assert.equal(normalizeDigits('-50'), '50')
+  assert.equal(normalizeDigits('1.5'), '15')
+  assert.equal(normalizeDigits('1,000'), '1000')
+})
+
+test('全角数字不会被误判成空串（否则会静默写成 null = 不设上限）', () => {
+  // 这一条是本函数存在的理由：若只写 replace(/[^\d]/g,'')，全角会变空串，
+  // 而空串在失焦时表示「用户主动清空」→ 写入 null。
+  assert.notEqual(normalizeDigits('１５０'), '')
+  assert.equal(normalizeDigits('１５０'), '150')
+})
+
+test('空输入仍为空（用户真的清空）', () => {
+  assert.equal(normalizeDigits(''), '')
 })

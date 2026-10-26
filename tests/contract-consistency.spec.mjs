@@ -87,26 +87,61 @@ test('locale 座位与 LocaleNamespaceMap 的声明一致', () => {
 })
 
 test('Host schema 字段名 === Client 字段名', () => {
-  // 新增字段时**必须**把字段名加进这个正则，否则它不受本契约保护
+  // 新增字段时**必须**把字段名加进这个清单，否则它不受本契约保护
   // ——P7 的 tool 字段最初就漏在这里（当时只有 GROUP/REASONING 两支），
   // 字段名写错也不会报错，只在运行时被静默忽略。
-  // P8 又加了两个 COLLAPSE_TIMING 字段，P9 加了隐藏范围字段，P10 加了三个高度字段，
-  // 同样必须进清单。正则字面量不能跨行，所以用 `new RegExp` 拼装（可读性优于超长单行）。
-  const fieldPattern = () => new RegExp(
-    '(GROUP|REASONING|TOOL)_AUTO_EXPAND_FIELD\\s*=\\s*\'([^\']+)\''
-    + '|(REASONING|TOOL)_COLLAPSE_TIMING_FIELD\\s*=\\s*\'([^\']+)\''
-    + '|INSPECT_BUTTON_HIDE_SCOPE_FIELD\\s*=\\s*\'([^\']+)\''
-    + '|GROUP_HEIGHT_(CUSTOM|PERCENT|HISTORY)_FIELD\\s*=\\s*\'([^\']+)\'',
-    'g',
-  )
-  /** 取值：正则的第 2 / 4 / 6 / 8 组（取决于命中的是哪个分支）。 */
-  const valueOf = (match) => match[2] ?? match[4] ?? match[6] ?? match[8]
-  const hostFields = [...hostSource.matchAll(fieldPattern())].map(valueOf)
-  const clientFields = [...clientSettings.matchAll(fieldPattern())].map(valueOf)
+  //
+  // ## 为什么是「一组独立正则」而不是一条带多分支的长正则
+  //
+  // P10 曾用一条 `A|B|C|D` 的长正则 + 一个 `valueOf(match) = match[2] ?? match[4] ?? …`
+  // 的取组函数，**这是错的**：新分支 `GROUP_HEIGHT_(CUSTOM|PERCENT|HISTORY)` 自带一个
+  // 捕获组，把所有后续组号推后一位，于是
+  //   - 三个高度字段取到的是 `CUSTOM`／`PERCENT`／`HISTORY` 这个**修饰名**；
+  //   - `INSPECT_BUTTON_HIDE_SCOPE_FIELD` 的值在第 5 组，取组函数里没有 5，恒为 `undefined`。
+  // 两边因此得到**同样错**的数组，`deepEqual` 永远相等——把 Host 侧字段名改错，
+  // 22 个测试依然全绿（已用突变实验证实）。
+  //
+  // 现在每个分支一条独立正则、自己声明取值组号，新增分支不会影响别人；
+  // 末尾再断言「没有空值、没有重复」，防止同类错误换个形式复发。
+  const fieldPatterns = [
+    /(?:GROUP|REASONING|TOOL)_AUTO_EXPAND_FIELD\s*=\s*'([^']+)'/g,
+    /(?:REASONING|TOOL)_COLLAPSE_TIMING_FIELD\s*=\s*'([^']+)'/g,
+    /INSPECT_BUTTON_HIDE_SCOPE_FIELD\s*=\s*'([^']+)'/g,
+    /GROUP_HEIGHT_(?:CUSTOM|PERCENT|HISTORY)_FIELD\s*=\s*'([^']+)'/g,
+  ]
+  /** 按声明顺序收集一侧源码里的全部字段名。 */
+  const collectFields = (source) => fieldPatterns.flatMap(pattern =>
+    [...source.matchAll(pattern)].map(match => match[1]))
+  const hostFields = collectFields(hostSource)
+  const clientFields = collectFields(clientSettings)
   assert.equal(hostFields.length, 9, `Host 侧应声明 9 个字段，实际 ${hostFields.length}`)
   assert.equal(clientFields.length, 9, `Client 侧应声明 9 个字段，实际 ${clientFields.length}`)
+  // 自检：任何一条字段名为空或重复，都说明某条正则的取值组错了。
+  for (const [side, fields] of [['Host', hostFields], ['Client', clientFields]]) {
+    assert.ok(fields.every(name => typeof name === 'string' && name.length > 0),
+      `${side} 侧字段清单里有空值：${JSON.stringify(fields)}`)
+    assert.equal(new Set(fields).size, fields.length,
+      `${side} 侧字段清单里有重复：${JSON.stringify(fields)}`)
+  }
   assert.deepEqual(clientFields, hostFields,
     '两边的字段名必须逐字一致：client 按字段名写 Host 设置文档，写错时写入会被静默忽略')
+})
+
+test('设置卡片的每个写入口都用字段常量，不用裸字面量', () => {
+  // 真正决定「写到 Host 哪个键」的是 setAutoExpandSetting 的实参，
+  // 而不是常量声明处。只守住声明处时，写入口写错一个字仍然静默失败：
+  // 设置页能拨、Host 收到一个不认识的键、值不生效、控制台无报错。
+  const card = read('src/client/settings-card.tsx')
+  const calls = [...card.matchAll(/setAutoExpandSetting\(\s*([A-Z_]+|'[^']*')/g)]
+    .map(match => match[1])
+  assert.ok(calls.length > 0, '没有找到任何 setAutoExpandSetting 调用，检查提取正则')
+  const literals = calls.filter(arg => arg.startsWith('\''))
+  assert.deepEqual(literals, [],
+    `写入口必须用字段常量而不是裸字面量，发现：${literals.join(', ')}`)
+  // 且每个参数都必须是形如 `XXX_FIELD` 的常量引用。
+  for (const arg of calls) {
+    assert.match(arg, /^[A-Z][A-Z_]*_FIELD$/, `写入口参数不像字段常量：${arg}`)
+  }
 })
 
 test('两端都默认开启（默认值必须一致）', () => {

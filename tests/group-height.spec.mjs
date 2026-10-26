@@ -21,7 +21,6 @@ import {
   DEFAULT_GROUP_HEIGHT_PERCENT,
   GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD, GROUP_HEIGHT_UNLIMITED_FIELD,
   groupHeight,
-  normalizeDigits,
 } from '../src/client/group-height.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -158,28 +157,61 @@ test('settings.ts 与 group-height.ts 的三处字段名必须逐字相同', () 
   }
 })
 
-// ── normalizeDigits：输入归一化 ─────────────────────────────────────────
+// ── 非法输入判据（与 UI 层的 NumberRow 保持一致）──────────────────────
 
-test('全角数字转半角（中文输入法打出的 １５０）', () => {
-  assert.equal(normalizeDigits('１５０'), '150')
+/**
+ * 复现 `NumberRow` 里的判据，确认它的行为与官方 `settingsNumberField` 一致、
+ * 只多一条「非负」。
+ *
+ * 单测放在这里而不是渲染测试里：`settings-card.tsx` 依赖 React 与 slot 运行时，
+ * Node 里加载不了；而这条判据本身就是纯数学，可以直接复述。
+ * @param {string} draft - 输入框里的原始文本。
+ * @returns {{invalid: boolean, value: number|null}} 判定结果。
+ */
+function classify(draft) {
+  const trimmed = draft.trim()
+  const num = trimmed === '' ? null : Number(trimmed)
+  const notNumber = trimmed !== '' && !Number.isFinite(num)
+  const negative = Number.isFinite(num) && num < 0
+  return { invalid: notNumber || negative, value: notNumber || negative ? null : num }
+}
+
+test('空输入合法（视作恢复默认）', () => {
+  assert.deepEqual(classify(''), { invalid: false, value: null })
+  assert.deepEqual(classify('   '), { invalid: false, value: null })
 })
 
-test('全角与半角混排也能正确归一', () => {
-  assert.equal(normalizeDigits('1５0'), '150')
+test('普通整数与负数判据', () => {
+  assert.deepEqual(classify('150'), { invalid: false, value: 150 })
+  assert.deepEqual(classify('-5'), { invalid: true, value: null })
 })
 
-test('字母、负号、小数点、逗号都被过滤掉', () => {
-  assert.equal(normalizeDigits('abc'), '')
-  assert.equal(normalizeDigits('-50'), '50')
-  assert.equal(normalizeDigits('1.5'), '15')
-  assert.equal(normalizeDigits('1,000'), '1000')
+test('小数合法（本插件接受小数）', () => {
+  assert.deepEqual(classify('2.5'), { invalid: false, value: 2.5 })
+  assert.deepEqual(classify('0.5'), { invalid: false, value: 0.5 })
 })
 
-test('全角数字不会被误判成空串（否则失焦会静默回填默认值）', () => {
-  assert.notEqual(normalizeDigits('１５０'), '')
-  assert.equal(normalizeDigits('１５０'), '150')
+test('字母与混合输入非法（不过滤，原样判错）', () => {
+  assert.equal(classify('abc').invalid, true)
+  assert.equal(classify('15a').invalid, true)
+  assert.equal(classify('1,000').invalid, true)
 })
 
-test('空输入仍为空（用户真的清空）', () => {
-  assert.equal(normalizeDigits(''), '')
+test('全角数字非法（照搬官方：Number() 不认全角）', () => {
+  assert.equal(classify('１５０').invalid, true,
+    '官方 parse 用 Number.isFinite，全角数字是 NaN —— 这是照搬官方的代价')
+})
+
+test('NaN 与 Infinity 都非法', () => {
+  assert.equal(classify('NaN').invalid, true)
+  assert.equal(classify('Infinity').invalid, true)
+})
+
+test('负数比"不是数字"优先报错（文案要分开）', () => {
+  // -5 是有限数但为负；abc 不是数字。两者 invalid 文案不同。
+  const neg = classify('-5')
+  const notNum = classify('abc')
+  assert.equal(neg.invalid && notNum.invalid, true)
+  assert.equal(neg.value, null)
+  assert.equal(notNum.value, null)
 })

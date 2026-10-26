@@ -229,6 +229,61 @@
 }
 
 /*
+ * 描述行：左侧说明，右侧橙色警告。
+ *
+ * ## 为什么需要负边距
+ *
+ * 官方 `.field` 是 `padding: 12px 0` + `gap: 6px`，它的 `hint` 是**内部**第三个
+ * 子元素，因此「输入框 → 描述」的视觉间距是 `gap` 的 **6px**。
+ *
+ * 本行的描述要自己渲染（官方 `hint` 是纯字符串，没有插槽能放右侧警告），
+ * 于是它落在 `.field` **外面**：输入框底部先经过 `.field` 的 `padding-bottom: 12px`。
+ *
+ * `margin-top: -6px` 把 12px 抵回 6px，与官方内部布局对齐。
+ * `margin-bottom: 12px` 补回原来 `.field` padding-bottom 提供的那段，
+ * 使「描述 → 下一个设置行」仍是 24px。
+ *
+ * ⚠️ **这两个值依赖官方 `.field` 的 `padding: 12px 0`**。若上游改了它，
+ * 这里会静默错位（描述贴得太近或太远）。`pnpm drift` 会报出该文件变更。
+ */
+.hintRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -6px 0 12px;
+  min-width: 0;
+}
+
+/* 与官方 `.hint` 同规格：12px / line-height 1.5 / 三级标签色。 */
+.hintText {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/*
+ * 值过小时描述行右侧的橙色警告。
+ *
+ * **橙色而不是红色**：它表达「这个值太小、几乎看不见内容」，不是「输入出错」——
+ * 真正的错误（负数、非数字）走官方 `invalid` 通道，是红字 + 红框。
+ * 两者互斥，不会同时出现。
+ */
+.warnBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--dsw-alias-state-warn-primary);
+}
+
+/*
  * 被上层开关锁住时的纵向字段。
  *
  * ## 为什么需要单独一条规则

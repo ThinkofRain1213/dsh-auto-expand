@@ -41,7 +41,7 @@
  */
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import {
-  IconChevronDownOutlineRegular, Menu, SettingsValueField, Switch,
+  IconChevronDownOutlineRegular, IconInfoOutlineRegular, Menu, SettingsValueField, Switch,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // 引入 `plugins.bundle.config` 的 SlotMap 声明（type-only，无运行时依赖）。
@@ -54,7 +54,7 @@ import {
   TOOL_AUTO_EXPAND_FIELD, TOOL_COLLAPSE_TIMING_FIELD,
   setAutoExpandSetting, useAutoExpandSettings,
 } from './settings.ts'
-import { DEFAULT_GROUP_HEIGHT_PERCENT, normalizeDigits } from './group-height.ts'
+import { DEFAULT_GROUP_HEIGHT_PERCENT } from './group-height.ts'
 import { deriveSettingsCardState, type SelectRowState } from './settings-card-state.ts'
 import { COLLAPSE_TIMINGS, type CollapseTiming } from './collapse-timing.ts'
 import { INSPECT_BUTTON_HIDE_SCOPES, type InspectButtonHideScope } from './inspect-button-scope.ts'
@@ -177,29 +177,46 @@ function SelectRow<T extends string>({ title, description, value, options, onCha
 }
 
 /**
- * 一行数字输入：名称 + 描述在左，右侧是「警告图标 + 输入框 + 单位」。
+ * 一行数字输入：标题、满宽输入框、描述行（描述 + 右侧提示）。
  *
- * ## 为什么是受控草稿，而不是每次输入都写 Host
+ * ## 输入不过滤，完全照搬官方
  *
- * 开关是点击即写（没有中间态），但数字输入有：输入 `200` 的过程是
- * `2` → `20` → `200`。若逐字写入，中间那个 `2%` 会让操作组瞬间压到
- * `min(8px, 1vh)`，用户会看到组在打字时闪缩三次。
+ * 官方 `SettingsValueField` 的契约写得很明确：
  *
- * 因此键入只改本地 `draft`，失焦或回车才提交。
+ * > `numeric` only hints the keypad: which drafts a field accepts is decided by
+ * > its spec, so **the control never silently rewrites what the user typed**.
  *
- * ## 空值 = 不设上限
+ * 因此这里**一个字符都不删**：`abc` 留在框里、`2.5` 保持 `2.5`、全角 `１５０`
+ * 也原样保留（它数学上不是数字，会被判为非法——这是照搬官方的代价）。
+ * 早先的实现会过滤成 `150` 并丢掉 `abc`，其中 `2.5` → `25` 是**静默篡改**。
  *
- * 提交空草稿时写 `null`。`0` 不是特殊值——它是普通的「过小值」，
- * 由橙色 ⓘ 劝阻但**不阻止**保存。
+ * ## 两类提示，位置都在描述行
  *
- * ## 警告图标为什么在框外左侧
+ * | 状态 | 显示 | 颜色 |
+ * |---|---|---|
+ * | 非法（非数字 / 负数） | 官方 `invalid` 通道：替换描述行文字 + 红框 | 红 |
+ * | 值过小（< 10） | 描述 + 右侧 ⓘ 警告 | **橙** |
  *
- * 它表达的是「这个值太小」，不是「输入出错」。塞进框里会把它读成后者。
- * 这与 DPG 的 `LinkRow` 不同（那边有 4 种状态，框内右侧是唯一空位）。
- * @param props - 标题、描述、当前值、提交回调、锁定信息、占位符与警示文案。
+ * 两者互斥：有错误时「过小」没有意义。
+ *
+ * ## 为什么自己渲染描述行
+ *
+ * 官方的 `hint` 是**纯字符串**，由组件内部渲染成一个独立的 `<p>`，没有任何插槽
+ * 能在它旁边加元素。要做「描述 + 右侧警告」，只能 `hint={undefined}` 并自己渲染
+ * 一行 —— 代价见 CSS 里 `.hintRow` 上方的负边距说明。
+ *
+ * ## 为什么是受控草稿
+ *
+ * 开关点击即写，但数字输入有中间态：输入 `200` 是 `2` → `20` → `200`。
+ * 逐字写入会让中间那个 `2%` 把操作组压到 `min(8px, 1vh)`，用户看到组闪缩三次。
+ * 因此键入只改本地 `draft`，失焦才提交。
+ * @param props - 标题、描述、当前值、提交回调、锁定信息与文案。
  * @returns 一行设置。
  */
-function NumberRow({ title, description, value, onCommit, locked, warning, fieldId, overriddenLabel, resetLabel }: {
+function NumberRow({
+  title, description, value, onCommit, locked, warning,
+  notNumberLabel, negativeLabel, fieldId, overriddenLabel, resetLabel,
+}: {
   readonly title: string
   readonly description: string
   /** 当前百分比。100 = 官方默认。 */
@@ -207,8 +224,12 @@ function NumberRow({ title, description, value, onCommit, locked, warning, field
   readonly onCommit: (next: number) => void
   /** 存在表示该行被上层控制：整体变灰、拒绝输入、描述已换成控制者说明。 */
   readonly locked?: { readonly hint: string }
-  /** 值过小时的提示；为空表示不显示警告。 */
+  /** 值过小时的提示。 */
   readonly warning: string
+  /** 「不是数字」的错误文案。 */
+  readonly notNumberLabel: string
+  /** 「负数」的错误文案。 */
+  readonly negativeLabel: string
   /** 官方字段要求稳定 id，用于 label 与控件的关联。 */
   readonly fieldId: string
   /** 「已覆盖」徽章的文案。 */
@@ -224,56 +245,69 @@ function NumberRow({ title, description, value, onCommit, locked, warning, field
     if (focused) return
     setDraft(String(value))
   }, [value, focused])
-  const parsed = draft === '' ? null : Number(draft)
   /**
-   * 值过小时把它标成「无效」，让官方组件在自己的提示位显示警示文案。
+   * 解析草稿。
    *
-   * 这不是真正的非法值（`0`、`5` 都能保存），只是**过小**。借用 `invalid` 通道
-   * 是因为官方 `SettingsValueField` 只有这一个提示位：它会用 `invalidLabel`
-   * 替换 `hint`，并把边框染成错误色。若另造一套提示，就会与官方字段的语义打架。
+   * 判据与官方 `settingsNumberField().parse` 一致，只多一条「非负」：
+   *
+   * | 官方 | 这里 |
+   * |---|---|
+   * | 空 → `clear` | 空 → 恢复默认 100 |
+   * | `Number.isFinite` → 可写 | 同 |
+   * | 否则非法 | 同上，**外加 `n < 0` 也非法** |
+   *
+   * 多这一条是因为官方有 `SettingsForm` 的「保存失败」反馈兜底（Host 拒绝时
+   * 显示 `saveFailed`），而本卡片是**立即生效**、没有那个点 —— 若不在这里拦，
+   * 负数会被 Host 的 `min(0)` 拒绝然后**静默回滚**，用户看到输入无效却无提示。
    */
-  const tooSmall = locked === undefined && parsed !== null && parsed < WARN_BELOW_PERCENT
+  const trimmed = draft.trim()
+  const num = trimmed === '' ? null : Number(trimmed)
+  const isNotNumber = trimmed !== '' && !Number.isFinite(num)
+  const isNegative = Number.isFinite(num) && (num as number) < 0
+  const invalid = isNotNumber || isNegative
+  /** 非法时给出的具体原因（负数与「不是数字」要分开说）。 */
+  const invalidLabel = isNegative ? negativeLabel : notNumberLabel
+  /** 合法的数值；非法的草稿不参与「过小」判定。 */
+  const validNum = invalid ? null : num
+  const tooSmall = locked === undefined && validNum !== null && validNum < WARN_BELOW_PERCENT
   /** 偏离默认值（100%）时显示「已覆盖 / 恢复默认」。 */
   const overridden = value !== DEFAULT_GROUP_HEIGHT_PERCENT
   /**
    * 提交草稿。
    *
-   * **空草稿提交默认值 100**（而不是 0 或旧值）：100 就是官方默认，
+   * **空草稿写默认值 100**（不是 0 或旧值）：100 就是官方默认，
    * 「清空」因此等价于「恢复默认」，这是数字字段里最符合直觉的语义。
+   *
+   * **非法草稿不提交**：官方 invalid 时会禁用保存按钮，那是它的闸门；
+   * 我们立即生效，闸门只能放在这里。草稿保留在框里（不删用户输入），
+   * 让用户看到自己打的内容和红字提示。
    *
    * ## 为什么由外层 `<div onBlurCapture>` 触发
    *
    * 官方 `SettingsValueField` 只暴露 `onEdit` / `onReset`，没有 `onBlur` 钩子。
    * 但 React 的 `blur` 事件**不冒泡**——所以外层要用 capture 阶段才能收到。
    *
-   * ## 提交后必须把草稿对齐到权威值
+   * ## 提交后把草稿对齐到权威值
    *
-   * `writeOptimistic` 是「先同步改快照、再异步写 Host、失败时回滚」。若提交后
-   * 只依赖 `useEffect` 同步草稿，会有两个洞：
-   *
-   * 1. 失焦那一刻 `focused` 刚变 false 但 `useEffect` 尚未跑完，被 Host 拒绝的
-   *    值会短暂留在框里；
-   * 2. `next === value` 的相等短路会让 `"007"` / `"000"` 这类草稿永远不回正
-   *    （`Number('007') === 7 === value`），输入框长期显示 `007` 而语义是 `7`。
-   *
-   * 因此这里显式把草稿写回 `value` 的规范形式。
+   * `writeOptimistic` 是先同步改快照、再异步写 Host、失败时回滚。
+   * 若只依赖 `useEffect` 同步草稿，被 Host 拒绝的值会短暂留在框里；
+   * 且 `next === value` 的相等短路会让 `"007"` 这类草稿永远不回正。
    */
   const commit = (): void => {
-    const next = draft === '' ? DEFAULT_GROUP_HEIGHT_PERCENT : Number(draft)
-    // 无论是否真的写 Host，草稿都先规范化（处理 "007"、前后空格等）。
+    if (invalid) return
+    const next = trimmed === '' ? DEFAULT_GROUP_HEIGHT_PERCENT : (num as number)
     setDraft(String(next))
     if (next === value) return
     onCommit(next)
   }
   return (
-    /* 外层只负责捕获焦点事件（官方 `SettingsValueField` 没有暴露 `onFocus` /
-        `onBlur`），**不能带任何纵向 padding** —— 那个 div 内部的官方组件自己
-       已经有 `.field { padding: 12px 0 }`，再包一层带 padding 的容器会让这一行
-       的上下留白比其它行多一倍（24px vs 12px），肉眼立刻看出这一格是错的。
+    /* 外层只负责捕获焦点事件与承载「描述 + 警告」那一行，
+       **不能带任何纵向 padding** —— 内部的官方组件自己已有 `.field { padding: 12px 0 }`，
+       再包一层带 padding 的容器会让这一行的上下留白比其它行多一倍。
 
        锁定时加 `.fieldGated`：官方组件只把 `disabled` 传给 `<input>`
        （`fields.module.css` 的 `.input:disabled` 只改文字色），label 与 hint
-       不变灰。但本卡片里其它行被锁时是整行变灰的（`.gated`），两类行必须一致。 */
+       不变灰。但本卡片里其它行被锁时是整行变灰的，两类行必须一致。 */
     <div
       className={locked === undefined ? css.fieldSlot : `${css.fieldSlot} ${css.fieldGated}`}
       onFocusCapture={() => { setFocused(true) }}
@@ -284,9 +318,11 @@ function NumberRow({ title, description, value, onCommit, locked, warning, field
         /* 单位写进标题，不用框内后缀——这是官方字段的标准做法
            （对比「命令超时（毫秒）」）。 */
         label={title}
-        hint={description}
+        /* `hint` 不传：描述行由下面自己渲染，这样才能在它右侧放橙色警告。
+           非法时官方仍会显示 `invalidLabel`（红字），因为
+           `hasMessage = invalid || hint` —— 不传 hint 不影响错误提示。 */
         text={draft}
-        invalid={tooSmall}
+        invalid={invalid}
         /* 官方字段的「已覆盖 / 恢复默认」——偏离默认值时才出现。
            走官方通道而不是自己造按钮：几何、hover、disabled 全部由组件提供。 */
         overridden={overridden}
@@ -297,19 +333,30 @@ function NumberRow({ title, description, value, onCommit, locked, warning, field
           onCommit(DEFAULT_GROUP_HEIGHT_PERCENT)
         }}
         resetLabel={resetLabel}
-        invalidLabel={warning}
+        invalidLabel={invalidLabel}
         numeric
         disabled={locked !== undefined}
         {...locked === undefined ? {} : { title: locked.hint }}
         onEdit={(text) => {
-          // 强过滤：只留数字。负号、字母因此物理上不可输入。
-          //
-          // 全角数字必须**先归一化再过滤**：中文输入法打出的 `１５０`
-          // 不符合 `\d`，直接过滤会得到空串，而空串在失焦时会被回填成
-          // 默认值 100 —— 用户以为设了 150%，实际把设置悄悄重置了。
-          setDraft(normalizeDigits(text))
+          // **不过滤**：原样存进草稿。见函数头「输入不过滤，完全照搬官方」。
+          setDraft(text)
         }}
       />
+      {/* 描述行：左侧描述，右侧橙色警告。
+          非法时官方已在上方显示红字，这一行整个隐藏，避免两处提示打架。 */}
+      {!invalid && (
+        <div className={css.hintRow}>
+          <span className={css.hintText}>
+            {locked === undefined ? description : locked.hint}
+          </span>
+          {tooSmall && (
+            <span className={css.warnBadge} role="img" aria-label={warning} title={warning}>
+              <IconInfoOutlineRegular size={14} />
+              {warning}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -482,6 +529,8 @@ export function SettingsCard({ t }: SettingsCardProps) {
             : t('heightPercentDesc' as SettingsKey)}
           value={settings.groupHeightPercent}
           warning={t('heightPercentTooSmall' as SettingsKey)}
+          notNumberLabel={t('heightPercentNotNumber' as SettingsKey)}
+          negativeLabel={t('heightPercentNegative' as SettingsKey)}
           overriddenLabel={t('heightOverridden' as SettingsKey)}
           resetLabel={t('heightReset' as SettingsKey)}
           onCommit={next => { void setAutoExpandSetting(GROUP_HEIGHT_PERCENT_FIELD, next) }}

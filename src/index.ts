@@ -151,9 +151,13 @@ export const Config = z.object({
   [INSPECT_BUTTON_HIDE_SCOPE_FIELD]: z.union([...INSPECT_BUTTON_HIDE_SCOPES])
     .default(DEFAULT_INSPECT_BUTTON_HIDE_SCOPE).volatile(),
   [GROUP_HEIGHT_UNLIMITED_FIELD]: z.boolean().default(false).volatile(),
-  // 百分比回到普通的 `.natural().default(100)`：100 就是官方默认，逐像素相同。
-  // `.natural()` 同时挡住负数与小数（实测：`z.number()` 两者都放过）。
-  [GROUP_HEIGHT_PERCENT_FIELD]: z.natural().default(DEFAULT_GROUP_HEIGHT_PERCENT).volatile(),
+  // 百分比接受**小数**（`2.5` → `min(10px, 1.25vh)`，是合法 CSS），
+  // 但拒绝负数：负数会生成 `min(-10px, -1.25vh)`，那是**无效声明**，
+  // 浏览器静默忽略整条规则，表现为「设了值却没反应」。
+  //
+  // 实测本仓库的 schemastery：`z.natural()` 拒绝 2.5，`z.number().min(0)`
+  // 接受 2.5 而拒绝 -1 —— 后者正是这里要的。
+  [GROUP_HEIGHT_PERCENT_FIELD]: z.number().min(0).default(DEFAULT_GROUP_HEIGHT_PERCENT).volatile(),
   [GROUP_HEIGHT_HISTORY_FIELD]: z.boolean().default(false).volatile(),
 })
 

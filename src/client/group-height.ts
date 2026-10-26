@@ -86,7 +86,7 @@ export interface GroupHeightStyle {
    * 会**继续裁剪**超出可视区的内容，`scrollbar-gutter: stable` 也仍保留
    * 滚动条预留宽度。必须成对写 `overflow-y: visible` 才与真正平铺等价。
    */
-  readonly overflowY?: string
+  readonly overflowY?: 'visible'
 }
 
 /**

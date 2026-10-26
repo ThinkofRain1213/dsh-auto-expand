@@ -81,6 +81,8 @@ export const ENTRIES = [
   {
     local: 'src/client/flow/AutoGroupSeat.tsx',
     sources: ['ui-chat:chat/ChatGroupSeat.tsx'],
+    // 五处改动（见文件头部清单）：自动展开、滚动定位、GroupOpenContext、
+    // realign 解构、body 内联 style（自定义高度）。
     kind: 'verbatim',
   },
   {

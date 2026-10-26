@@ -3,13 +3,16 @@
  *
  * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  *
- * 修改点（四处，其余逐字保留）：
+ * 修改点（五处，其余逐字保留）：
  *   1. 本地 `useDisclosure()` → `useAutoDisclosure(!closed)`：body 默认展开，
  *      group 关闭时自动折叠一次（这是本插件的核心行为）。
  *   2. 新增自动展开时的滚动定位：官方 `toggle` 里有 `initialize(...)`，
  *      但自动展开不经过它，必须在同一帧显式补上（`initialize` + `realign`）。
  *   3. 新增 `GroupOpenContext.Provider`：把 body 展开状态下发给内层行（P3 思考块 / P7 工具行）。
  *   4. `useProcessScroll` 解构出新增的 `realign`。
+ *   5. body 增加内联 `style`（自定义高度）：由 `groupHeight()` 算出 `max-height`
+ *      （留空时另加 `overflow-y: visible`）。`capped` 判据本身不动——它仍决定
+ *      class 与渐隐效果，判据函数只是消费它的结果。
  *
  * 保留不动（关键）：
  *   - `capped` 计算 → 400px 高度上限（官方逐字保留，见 spec/MOTION-PLAN.md 6.4）
@@ -32,6 +35,7 @@ import { turnProcessOpen } from '../contract/chat-contract.ts'
 import { useAutoDisclosure } from '../auto-disclosure.ts'
 import { startedAnchorOfNode, stepOfNode } from '../collapse-timing.ts'
 import { useAutoExpandSettings } from '../settings.ts'
+import { groupHeight } from '../group-height.ts'
 import { GroupOpenContext, type GroupOpenState } from '../group-open-context.ts'
 import { AutoNodeSeat } from './AutoNodeSeat.tsx'
 import { chatRenderKey, hiddenOrCollapsing, processTitle } from './flow-utils.ts'
@@ -303,6 +307,21 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
   // 高度上限只作用于读者打开的 group；正在关闭的 body 保留平铺高度，
   // 使过渡从屏幕上的样子开始，而不是先跳到上限。（官方逐字保留）
   const capped = grouped && (!deferCompletedTurns || open)
+  // 改动 5（高度设置）：把「上限是多少」接上去。
+  //
+  // 只消费官方 `capped`，不重算 `grouped` —— detailed 模式下 `capped` 恒假，
+  // 重算会给本应无上限的组强加上限（Spec §6.3）。
+  //
+  // `closed === false` 而不是 `!closed`：`closed` 可能是 `undefined`（数据还没到），
+  // `!closed` 会把首帧也算成「当前组」而误用自定义高度。
+  const height = groupHeight({
+    groupAutoExpand: settings.groupAutoExpand,
+    capped,
+    isCurrent: closed === false,
+    custom: settings.groupHeightCustom,
+    history: settings.groupHeightHistory,
+    percent: settings.groupHeightPercent,
+  })
   const classes = [css.body, !capped ? css.expandedBody : '',
     capped && edges.canScrollUp ? css.fadeTop : '', capped && edges.canScrollDown ? css.fadeBottom : '']
   return (
@@ -315,6 +334,7 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
           usePresentation={props.usePresentation} t={props.t} open={open} bodyId={bodyId} toggle={toggle} />
       </div>
       <div ref={bodyRef} id={bodyId} className={classes.join(' ')} data-step-process-body
+        style={height ?? undefined}
         data-scroll-up={edges.canScrollUp || undefined} data-scroll-down={edges.canScrollDown || undefined}
         {...events}>
         <div ref={contentRef} className={css.content} data-step-process-content data-chat-flow="">

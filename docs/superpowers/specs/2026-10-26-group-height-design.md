@@ -381,42 +381,111 @@ const classes = [css.body, !capped ? css.expandedBody : '', ...]
 
 ## 8. 输入控件
 
-### 8.1 形态：**警告在框外左侧**（与 DPG 不同）
+### 8.1 形态：**警告在框外左侧 + 输入框照抄 DPG**
 
 DPG 的 `LinkRow` 把状态标记叠在**输入框内部右端**（`position: absolute; right: 8px`）。
-本设计**不采用**那个做法，原因：
+本设计不采用那个位置放警告，原因：
 
 - DPG 那个标记有 4 种状态（spinner / ✓ / ⓘ / 无），框内右侧是唯一的空位；
 - 我们只有 1 种状态（值太小），且**不是错误**，塞进框里会让它读起来像输入出错了。
 
-**最终形态（已用 HTML 模拟稿验证）：**
+**但输入框本体的几何完全照抄 DPG**，包括它「框内右端叠一个小元素」的定位方式
+—— 那里放的是 `%`。
 
 ```
 [行标题、描述]              ⓘ  [  150  % ]
-                             ↑   ↑
-                       框外左侧  输入框
+                             ↑   ↑      ↑
+                       框外左侧  边框  % 在框内右端
 ```
 
-| 元素 | 规格 |
-|---|---|
-| 控件组 | `display: flex; align-items: center; gap: 8px` |
-| 警告槽 | 固定 16×16，`visibility: hidden` 占位 |
-| 输入框 | 高 36px（与 `.selector` 一致）、`border: 0.5px solid var(--dsw-alias-border-l4)`、圆角 `--dsw-radius-md`、背景 `--dsw-alias-bg-layer-1` |
-| 数字 | `text-align: right`，宽 56px |
-| 单位 `%` | 13px/500、`--dsw-alias-label-tertiary` |
+#### 8.1.0 参考对象（2026-10-26 修正，重要）
 
-#### 8.1.1 警告槽必须**固定占位**
+**初版抄错了对象。** 当时参考的是 DPG 对话框里的 `linkInput`，却把它的**几何**
+与他处 `.selector`（下拉按钮）的**高度**混在一起，结果：
+
+| 属性 | 初版（错） | 现在（照抄 DPG `linkInput`） |
+|---|---|---|
+| `box-sizing` | 缺失 | **`border-box`** |
+| `height` | 36px | **32px** |
+| `font-size` | 13px | **14px** |
+| `line-height` | 19.5px | **22px** |
+| 边框/背景所在元素 | 外壳 `<div>` | **`<input>` 自己** |
+| `padding` | `0 14px` | **`0 28px 0 10px`** |
+
+**「文字位置不对劲」的根因是第 5 行**：初版把边框背景放在外壳、字号行高放在内层
+`<input>`，两层规则打架，垂直居中靠 `align-items: center` 硬撑，基线必然偏移。
+DPG 的做法是把**全部样式写在 `<input>` 上**，容器只负责定位。
+
+另一个混淆源：官方设置页还有一套 `SettingsValueField`（纵向三段式、输入框占满整行、
+提示在框下方），与 DPG 链接框是**两种不同范式**。本设计选择「保持右侧控件 + 照抄
+DPG 链接框」，不使用 `SettingsValueField`。
+
+#### 8.1.1 结构（与 DPG 一一对应）
+
+| DPG | 本设计 |
+|---|---|
+| `.linkRow`（flex, gap 6px） | `.numGroup`（flex, gap 8px） |
+| `.linkField`（relative, flex, center） | `.numField`（同） |
+| `.linkInput`（边框/字号全在此） | `.numInput`（同，见 §8.1.2） |
+| `.linkStatus`（absolute, right:8px，内含图标） | `.numUnit`（同，内含 `%`） |
+| `.iconButton`（删除按钮） | 无（本行没有删除操作） |
+
+#### 8.1.2 输入框规格（与 DPG `linkInput` 逐字对应）
+
+```css
+.numInput {
+  box-sizing: border-box;
+  width: 96px;              /* DPG 是 100%：它撑满对话框整行 */
+  height: 32px;
+  padding: 0 28px 0 10px;   /* 右侧 28px 给 % 让位，同 DPG 给图标让位 */
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  text-align: right;        /* DPG 是左对齐：URL 左读，数字右对齐更合适 */
+}
+.numInput:disabled { opacity: 0.6; cursor: default; }   /* 同 DPG */
+```
+
+**与 DPG 只有两处刻意不同**（都是内容性质决定的，不是拍脑袋）：`width` 与 `text-align`。
+
+#### 8.1.3 百分号后缀
+
+```css
+.numUnit {
+  position: absolute;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-tertiary);
+}
+```
+
+与 DPG 的 `.linkStatus` 定位方式完全一致，只是内容从图标换成 `%`。
+
+#### 8.1.4 警告槽必须**固定占位**
 
 不能用条件渲染（`{warning && <Icon/>}`），否则图标出现/消失时会把输入框推歪，行内元素左右跳动。
 
 用 `visibility: hidden` 而不是 `display: none`：前者保留占位，后者仍会让布局重排。
 
-**实测验证**：模拟稿中 10 行控件的右边缘**全部对齐在 728px**（含警告态与留空态），
-说明固定占位策略有效。
+### 8.1.5 已知的高度差（接受）
 
-### 8.1.2 各行的宽度差异（已知，不修）
+DPG 的 `linkInput` 是 **32px**，而同一张卡片里上面的下拉 `.selector` 是 **36px**。
+第 8 行的输入框因此比第 3、5、6 行的下拉**矮 4px**。
 
-右对齐后，开关（40px）、下拉（≈128px）、数字组（≈152px）的**左边缘必然参差不齐**。
+DPG 那边没有这个问题（链接框在对话框里，旁边没有下拉对照）。本设计**接受**这个差异，
+理由是不改动既有三行的外观；若日后要求统一，应把 `.selector` 也降到 32px，而不是反向抬高输入框。
+
+### 8.1.6 各行的宽度差异（已知，不修）
+
+右对齐后，开关（40px）、下拉（≈128px）、数字组（≈144px）的**左边缘必然参差不齐**。
 这是所有「右侧控件宽度不一」的设计页的通病，官方卡片也有。接受。
 
 ### 8.2 强过滤

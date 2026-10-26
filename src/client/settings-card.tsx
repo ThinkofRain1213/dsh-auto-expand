@@ -261,7 +261,9 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
           {...showWarning ? { title: warning, role: 'img', 'aria-label': warning } : {}}>
           {showWarning && <IconInfoOutlineRegular size={16} className={css.warnIcon} />}
         </span>
-        <div className={locked === undefined ? css.numWrap : `${css.numWrap} ${css.locked}`}>
+        {/* 结构与 DPG 的 `.linkField` 一致：容器只负责定位，边框/字号全在
+            `<input>` 上；`%` 绝对定位在框内右端（对应 DPG 的 `.linkStatus`）。 */}
+        <div className={css.numField}>
           <input
             className={css.numInput}
             type="text"
@@ -290,7 +292,7 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
               event.currentTarget.blur()
             }}
           />
-          <span className={css.unit}>{unit}</span>
+          <span className={css.numUnit}>{unit}</span>
         </div>
       </div>
     </div>

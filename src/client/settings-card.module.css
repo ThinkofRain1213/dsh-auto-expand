@@ -166,50 +166,75 @@
 }
 
 /*
- * 输入框外壳。几何照 `.selector`（36px 高、`radius-md`、13px 字），
- * 换成本项目输入框的底色与描边。
+ * 输入框的定位容器。
+ *
+ * **照抄 DPG 的 `.linkField`**（`dsh-project-groups/src/vendored/client/rows/
+ * WorkspaceBrowser.module.css`）：`position: relative` 让框内右端的后缀能绝对定位，
+ * `display: flex` + `align-items: center` 保证后缀与输入文字同一条中线。
+ *
+ * 这里**不画边框、不设高度**——那些全部在 `.numInput` 上，与 DPG 一致。
+ * 早先的版本把边框放在这层、字号放在内层，两套规则打架，文字基线偏移。
  */
-.numWrap {
-  display: inline-flex;
+.numField {
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 14px;
+  flex: none;
+}
+
+/*
+ * 数字输入框。**与 DPG 的 `.linkInput` 逐字对应**，只有三处刻意不同：
+ *
+ * | 属性 | DPG | 这里 | 原因 |
+ * |---|---|---|---|
+ * | `width` | `100%` | `96px` | DPG 撑满对话框整行；设置行的右侧控件区是固定宽度 |
+ * | `text-align` | 默认（左） | `right` | 数字右对齐，与 `%` 贴在一起 |
+ * | `padding` | `0 28px 0 10px` | 同 | 右侧 28px 给 `%` 让位，与 DPG 给状态图标让位同理 |
+ *
+ * 其余全部相同：`box-sizing: border-box`、`height: 32px`、`font: inherit`、
+ * `font-size: 14px`、`line-height: 22px`、边框/圆角/底色 token。
+ */
+.numInput {
+  box-sizing: border-box;
+  width: 96px;
+  height: 32px;
+  padding: 0 28px 0 10px;
   border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-layer-1);
-}
-
-.numWrap:focus-within {
-  border-color: var(--dsw-alias-state-business-primary);
-}
-
-/* 与 `.selector:disabled` 一致：整个控件压暗，而不是只改文字色。 */
-.numWrap.locked {
-  opacity: 0.5;
-}
-
-.numInput {
-  width: 56px;
-  border: none;
-  background: transparent;
-  outline: none;
-  padding: 0;
   color: var(--dsw-alias-label-primary);
   font: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 19.5px;
+  font-size: 14px;
+  line-height: 22px;
   text-align: right;
+}
+
+.numInput:focus {
+  border-color: var(--dsw-alias-state-business-primary);
+  outline: none;
+}
+
+/* 与 DPG 的 `.linkInput:disabled` 同值。 */
+.numInput:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .numInput::placeholder {
   color: var(--dsw-alias-label-dimmed);
 }
 
-.unit {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 19.5px;
+/*
+ * 百分号后缀。**照抄 DPG 的 `.linkStatus`** 的定位方式：
+ * 绝对定位在输入框内部右端，`pointer-events: none` 让它不挡点击。
+ */
+.numUnit {
+  position: absolute;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+  font-size: 14px;
+  line-height: 22px;
   color: var(--dsw-alias-label-tertiary);
 }

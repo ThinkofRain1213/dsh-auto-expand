@@ -3,6 +3,10 @@
 > 来源：`C:\Users\Think\Desktop\项目\dsh-project-groups`
 > 依据：`DESIGN.md`（第 1473-1560 行）+ `src/client/settings-card.tsx`（831 行）+ `src/client/settings-card.module.css`（774 行）
 > 目标 DSH：0.2.1-rc.2
+>
+> ⚠️ **视觉数值以 [UI-SPEC.md](UI-SPEC.md) 为准。** 那份是 2026-10-27 按当前实现重写的：
+> 行内边距 16px → 12px（对齐官方字段）、新增一级分组标题与分隔线、
+> 输入框改用官方 `SettingsValueField`。本文档保留的槽位与渲染位置那部分仍然有效。
 
 本文档记录 P5 设置页必须遵循的规范。**所有数值都是 DPG 实测自官方插件卡片的，不是臆测。**
 

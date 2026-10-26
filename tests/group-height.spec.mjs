@@ -121,3 +121,18 @@ test('高度文案键在中英两套里都存在且非空', async () => {
   // 警告文案必须与设计文档一致
   assert.equal(zh.heightPercentTooSmall, '高度过小，内容几乎不可见')
 })
+
+test('settings.ts 与 group-height.ts 的三处字段名必须逐字相同', () => {
+  // settings.ts 依赖 dsh-client-store，Node 里加载不了 —— 改用源码断言。
+  const source = read('src/client/settings.ts')
+  for (const [name, value] of [
+    ['GROUP_HEIGHT_CUSTOM_FIELD', GROUP_HEIGHT_CUSTOM_FIELD],
+    ['GROUP_HEIGHT_PERCENT_FIELD', GROUP_HEIGHT_PERCENT_FIELD],
+    ['GROUP_HEIGHT_HISTORY_FIELD', GROUP_HEIGHT_HISTORY_FIELD],
+  ]) {
+    const pattern = new RegExp(`${name}\\s*=\\s*'([^']+)'`)
+    const match = source.match(pattern)
+    assert.ok(match, `settings.ts 必须显式声明 ${name} 字面量（不能只 re-export）`)
+    assert.equal(match[1], value, `${name} 两处取值必须相同`)
+  }
+})

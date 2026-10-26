@@ -90,20 +90,21 @@ test('Host schema 字段名 === Client 字段名', () => {
   // 新增字段时**必须**把字段名加进这个正则，否则它不受本契约保护
   // ——P7 的 tool 字段最初就漏在这里（当时只有 GROUP/REASONING 两支），
   // 字段名写错也不会报错，只在运行时被静默忽略。
-  // P8 又加了两个 COLLAPSE_TIMING 字段，P9 加了隐藏范围字段，同样必须进清单。
-  // 正则字面量不能跨行，所以用 `new RegExp` 拼装（可读性优于超长单行）。
+  // P8 又加了两个 COLLAPSE_TIMING 字段，P9 加了隐藏范围字段，P10 加了三个高度字段，
+  // 同样必须进清单。正则字面量不能跨行，所以用 `new RegExp` 拼装（可读性优于超长单行）。
   const fieldPattern = () => new RegExp(
     '(GROUP|REASONING|TOOL)_AUTO_EXPAND_FIELD\\s*=\\s*\'([^\']+)\''
     + '|(REASONING|TOOL)_COLLAPSE_TIMING_FIELD\\s*=\\s*\'([^\']+)\''
-    + '|INSPECT_BUTTON_HIDE_SCOPE_FIELD\\s*=\\s*\'([^\']+)\'',
+    + '|INSPECT_BUTTON_HIDE_SCOPE_FIELD\\s*=\\s*\'([^\']+)\''
+    + '|GROUP_HEIGHT_(CUSTOM|PERCENT|HISTORY)_FIELD\\s*=\\s*\'([^\']+)\'',
     'g',
   )
-  /** 取值：正则的第 2 / 4 / 6 组（取决于命中的是哪个分支）。 */
-  const valueOf = (match) => match[2] ?? match[4] ?? match[6]
+  /** 取值：正则的第 2 / 4 / 6 / 8 组（取决于命中的是哪个分支）。 */
+  const valueOf = (match) => match[2] ?? match[4] ?? match[6] ?? match[8]
   const hostFields = [...hostSource.matchAll(fieldPattern())].map(valueOf)
   const clientFields = [...clientSettings.matchAll(fieldPattern())].map(valueOf)
-  assert.equal(hostFields.length, 6, `Host 侧应声明 6 个字段，实际 ${hostFields.length}`)
-  assert.equal(clientFields.length, 6, `Client 侧应声明 6 个字段，实际 ${clientFields.length}`)
+  assert.equal(hostFields.length, 9, `Host 侧应声明 9 个字段，实际 ${hostFields.length}`)
+  assert.equal(clientFields.length, 9, `Client 侧应声明 9 个字段，实际 ${clientFields.length}`)
   assert.deepEqual(clientFields, hostFields,
     '两边的字段名必须逐字一致：client 按字段名写 Host 设置文档，写错时写入会被静默忽略')
 })

@@ -19,10 +19,7 @@ import type { CollapseTiming } from './collapse-timing.ts'
 import {
   DEFAULT_INSPECT_BUTTON_HIDE_SCOPE, type InspectButtonHideScope,
 } from './inspect-button-scope.ts'
-import {
-  DEFAULT_GROUP_HEIGHT_PERCENT,
-  GROUP_HEIGHT_CUSTOM_FIELD, GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD,
-} from './group-height.ts'
+import { DEFAULT_GROUP_HEIGHT_PERCENT } from './group-height.ts'
 
 /** 本插件设置命名空间（= Host 半边在 `cordis.patch.yml` 里的 entry id）。 */
 export const AUTO_EXPAND_NAMESPACE = 'auto-expand'
@@ -34,9 +31,14 @@ export const TOOL_AUTO_EXPAND_FIELD = 'toolAutoExpand'
 export const REASONING_COLLAPSE_TIMING_FIELD = 'reasoningCollapseTiming'
 export const TOOL_COLLAPSE_TIMING_FIELD = 'toolCollapseTiming'
 export const INSPECT_BUTTON_HIDE_SCOPE_FIELD = 'inspectButtonHideScope'
-export {
-  GROUP_HEIGHT_CUSTOM_FIELD, GROUP_HEIGHT_HISTORY_FIELD, GROUP_HEIGHT_PERCENT_FIELD,
-}
+// 高度三字段：**在这里再声明一次字面量**，而不是从 `group-height.ts` re-export。
+//
+// `contract-consistency` 的字段清单是靠正则匹配 `XXX_FIELD = '...'` 的，
+// re-export 不带字面量，会让这三个字段绕过「两边逐字一致」的检查。
+// 值必须与 `group-height.ts` 的同名常量相同（有一条测试守住）。
+export const GROUP_HEIGHT_CUSTOM_FIELD = 'groupHeightCustom'
+export const GROUP_HEIGHT_PERCENT_FIELD = 'groupHeightPercent'
+export const GROUP_HEIGHT_HISTORY_FIELD = 'groupHeightHistory'
 
 /** 默认设置：三个开关默认全开；两个时机默认「下一批操作出现时」；查看按钮不隐藏。 */
 export const DEFAULT_SETTINGS: AutoExpandSettings = {

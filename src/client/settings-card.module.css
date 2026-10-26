@@ -224,32 +224,40 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 16px;
+  /* 两列各自的内容高度不同（左列有标题+框+说明三段，右列只有标题+开关），
+     让它们从各自顶部开始排，标题才会落在同一条水平线上。 */
+  align-items: start;
 }
 
 .column {
   min-width: 0;
 }
 
+/*
+ * 双列容器里的横向行。
+ *
+ * `.row` 平时用 `align-items: center`（控件与整块文字垂直居中），那在独占一整行时
+ * 是对的。但并行排布时，**左列的官方字段是 `flex column`、标题贴顶**，
+ * 而居中的右列标题会被推到中间，两列标题因此错开一截。
+ *
+ * 这里把它改成顶部对齐：标题贴顶，与左列的 label 落在同一基线上。
+ * 开关本身随后续内容自然下落，不影响它自己那一行的可点击范围。
+ */
+.column .row {
+  align-items: flex-start;
+}
+
 /* ── 纵向字段（输入框项）──────────────────────────────────────────────── */
 
 /*
- * 官方 `fields.module.css` 的 `.field`：纵向三段，段间 6px，**上下各 12px**。
+ * 官方 `SettingsValueField` 的**外层事件代理容器**。
  *
- * 与横向 `.row` 的区别是根本性的：这里标题、控件、说明各占一行，控件满宽；
- * `.row` 是左右分栏，控件贴在右侧。
- *
- * ## `padding: 12px 0` 不能省
- *
- * 它是官方字段与外层容器之间唯一的纵向留白来源。早先这里只写了 `gap: 6px`、
- * 漏掉 padding，导致「自定义展开高度」（横向行，`padding: 12px 0`）与
- * 「展开高度」（这个字段）之间只有 12px，而其它行之间是 24px —— 三种间距混排，
- * 肉眼看就是「高度都不一样」。
+ * **没有任何样式**，特别是**没有 padding**：官方组件内部自己就有
+ * `.field { padding: 12px 0 }`，这里再加一层 padding 会让该行的上下留白翻倍。
+ * 它的唯一用途是给 React 的 `onFocusCapture` / `onBlurCapture` 一个挂载点
+ * （官方组件不暴露 focus/blur 钩子，而 `blur` 事件不冒泡，只能靠 capture 阶段收到）。
  */
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 0;
+.fieldSlot {
   min-width: 0;
 }
 

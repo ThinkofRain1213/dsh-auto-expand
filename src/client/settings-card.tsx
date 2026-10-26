@@ -262,10 +262,12 @@ function NumberRow({ title, description, value, onCommit, locked, placeholder, w
     onCommit(next)
   }
   return (
-    /* 用官方 `SettingsValueField`：标题行 → 满宽输入框 → 描述在框下。
-       几何、字号、聚焦态、禁用态全部由官方组件提供，不再自己维护。 */
+    /* 外层只负责捕获焦点事件（官方 `SettingsValueField` 没有暴露 `onFocus` /
+        `onBlur`），**不能带任何纵向 padding** —— 那个 div 内部的官方组件自己
+        已经有 `.field { padding: 12px 0 }`，再包一层带 padding 的容器会让这一行
+        的上下留白比其它行多一倍（24px vs 12px），肉眼立刻看出这一格是错的。 */
     <div
-      className={css.field}
+      className={css.fieldSlot}
       onFocusCapture={() => { setFocused(true) }}
       onBlurCapture={() => { setFocused(false); commit() }}
     >

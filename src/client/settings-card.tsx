@@ -468,38 +468,33 @@ export function SettingsCard({ t }: SettingsCardProps) {
           checked={state.heightUnlimited.checked}
           onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_UNLIMITED_FIELD, next) }}
         />
-        {/* 后两项并排：左侧纵向字段（标题/警告 + 满宽框 + 描述），
-            右侧横向开关行。窄屏时 grid 自动堆成一列。
+        {/* 后两项与上面的开关一样**各自独占整行**——不再两列并排。
+            三行因此与卡片其它行完全同构（横向开关行 + 纵向字段行），
+            间距也统一走 `.row` / 官方字段各自的 `padding: 12px 0`。
 
             百分比框**只被「不限制高度」锁**：无上限时那个数字没有意义。
             历史开关**不受任何门控**——它表达应用范围，与高度值正交。 */}
-        <div className={css.columns}>
-          <div className={css.column}>
-            <NumberRow
-              title={t('heightPercentTitle' as SettingsKey)}
-              fieldId={`${sectionId}-height-percent`}
-              description={state.heightPercent.gate === 'unlimited'
-                ? t('gatedByHeightUnlimited' as SettingsKey)
-                : t('heightPercentDesc' as SettingsKey)}
-              value={settings.groupHeightPercent}
-              warning={t('heightPercentTooSmall' as SettingsKey)}
-              overriddenLabel={t('heightOverridden' as SettingsKey)}
-              resetLabel={t('heightReset' as SettingsKey)}
-              onCommit={next => { void setAutoExpandSetting(GROUP_HEIGHT_PERCENT_FIELD, next) }}
-              {...state.heightPercent.locked
-                ? { locked: { hint: t('gatedByHeightUnlimited' as SettingsKey) } }
-                : {}}
-            />
-          </div>
-          <div className={css.column}>
-            <SwitchRow
-              title={t('heightHistoryTitle' as SettingsKey)}
-              description={t('heightHistoryDesc' as SettingsKey)}
-              checked={state.heightHistory.checked}
-              onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_HISTORY_FIELD, next) }}
-            />
-          </div>
-        </div>
+        <NumberRow
+          title={t('heightPercentTitle' as SettingsKey)}
+          fieldId={`${sectionId}-height-percent`}
+          description={state.heightPercent.gate === 'unlimited'
+            ? t('gatedByHeightUnlimited' as SettingsKey)
+            : t('heightPercentDesc' as SettingsKey)}
+          value={settings.groupHeightPercent}
+          warning={t('heightPercentTooSmall' as SettingsKey)}
+          overriddenLabel={t('heightOverridden' as SettingsKey)}
+          resetLabel={t('heightReset' as SettingsKey)}
+          onCommit={next => { void setAutoExpandSetting(GROUP_HEIGHT_PERCENT_FIELD, next) }}
+          {...state.heightPercent.locked
+            ? { locked: { hint: t('gatedByHeightUnlimited' as SettingsKey) } }
+            : {}}
+        />
+        <SwitchRow
+          title={t('heightHistoryTitle' as SettingsKey)}
+          description={t('heightHistoryDesc' as SettingsKey)}
+          checked={state.heightHistory.checked}
+          onChange={next => { void setAutoExpandSetting(GROUP_HEIGHT_HISTORY_FIELD, next) }}
+        />
       </Section>
     </div>
   )

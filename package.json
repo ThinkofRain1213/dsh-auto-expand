@@ -1,6 +1,6 @@
 {
   "name": "dsh-auto-expand",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DSH plugin: keep the running turn's work visible — process groups, reasoning and tool results expand automatically and fold once the group ends, leaving history untouched.",
   "license": "MIT",
   "type": "module",

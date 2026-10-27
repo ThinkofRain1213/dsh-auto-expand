@@ -3,6 +3,75 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。DSH 目标版本写在
 `package.json` 的 `engines.dsh` 里，只在与之匹配的 DSH 版本上保证行为。
 
+## [0.2.1] — 2026-10-28
+
+修复与 `dsh-project-groups` 的 CSS 类名撞车。**同时装了这两个插件的人必须升级。**
+
+### 🐞 修复：分组标题上方少 12px
+
+**症状**：安装 `dsh-project-groups` 后，本卡片的四个分组标题被往上拽了 12px
+（距 `section` 顶部从 16px 变成 4px）。关掉 DPG 就恢复。
+
+**根因**：CSS Modules 的哈希只由**传给 lightningcss 的 `filename`** 派生，而那是
+`relative(process.cwd(), abs)` —— 在各自仓库根目录下求值：
+
+```
+dsh-auto-expand     → src/client/settings-card.module.css
+dsh-project-groups  → src/client/settings-card.module.css   ← 同一个字符串
+```
+
+于是两边哈希相同，**10 个类名逐字符相同**（`section` `row` `rowText` `title`
+`desc` `stack` `rule` `selector` `chevron` `gated`）。
+
+注入用的 `tagId` 带包名，但那只防两张样式表互相覆盖，**不隔离选择器** ——
+两张表都在页面上，DPG 的规则会匹配页面上任何带同名类的元素。
+
+**致命的那一条**：
+
+```css
+/* 本插件：每组首子是 h3（margin 0），不需要这条 */
+.section > :last-child  { margin-bottom: -12px }
+
+/* DPG：每组首子是带 12px padding 的 .row，必须加这条 */
+.section > :first-child { margin-top: -12px }   ← 落到本插件的 h3 上
+```
+
+两个插件各自的规则**都是对的**，这才是它难查的地方。最小复现逐条拆分确认：
+`display:flex` 贡献 0px，`:first-child` 那条贡献 −12px。
+
+**修法**：`filename` 改为 `` `${PACKAGE_NAME}/${identity}` ``，只影响哈希，
+`identity` 仍用于 resolve 与资源内联。所有类名因此换了一次前缀（`KApx_W_` →
+`nMcTHa_`），产物里无硬编码依赖。
+
+**影响面**：只装本插件、不装 DPG 的人不受影响。
+
+### 🔒 新增：跨插件类名隔离检查
+
+`scripts/verify-css-isolation.mjs`，已接入 `pnpm verify` 门禁：扫描同级目录下
+所有已构建插件产物的类名集合，**交集必须为空**。
+
+两个已知坑写进了脚本注释：
+
+- 样式常量名带 rolldown 去重后缀（`css$4`），只用 `const css = ` 匹配会让一个包
+  只读到第一个样式表而**假绿**（修正后类名数 41 → 156、16 → 53）。
+- 反向对照必须两边一起还原旧哈希，只还原一边测不出撞名。
+
+### 🔧 构建与 CI
+
+以下改动不影响运行时行为，只是让产物可复现、让 CI 能绿：
+
+- **构建后规范化 pnpm 虚拟 store 路径**：tsdown 会把
+  `node_modules/.pnpm/<虚拟目录>/...` 写进产物注释，而那个目录名由 pnpm 的
+  `virtual-store-dir-max-length` 决定（Windows 默认 60、其他平台 120）。同一份
+  源码因此产出不同的 `lib/client.js`，`Assert committed bundles match src`
+  从仓库第一个提交起就一直失败。新增 `scripts/normalize-bundle.mjs` 在构建后
+  把该路径规范化成 `node_modules/...`。
+- **统一 LF**（`.gitattributes`）：`core.autocrlf=true` 会让重新 clone 把仓库里
+  的 LF 全转 CRLF，而 sourcemap 内联了源码原文，行尾一混构建就不可复现。
+- **断言失败时输出诊断**：`Assert committed bundles match src` 现在会打印
+  `wc -c` 与 `git diff` 前 80 行。原来的失败信息只有文件名，这正是根因藏了
+  11 次的原因。
+
 ## [0.2.0] — 2026-10-27
 
 「展开高度」重新设计：**两个维度取代三个状态**，设置卡片改为四个一级分组。

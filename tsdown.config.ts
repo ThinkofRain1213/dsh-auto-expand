@@ -173,8 +173,22 @@ const client = {
       // JSON 字面量（base64 含 `+` `/` `=`）。在原始 CSS 上替换则安全，
       // 之后的 JSON.stringify 会正确转义。
       const source = await inlineCssImages(raw.toString('utf8'), identity, this)
+      // `filename` 参与哈希，所以它必须带上包名。
+      //
+      // lightningcss 只用 `filename` 算 CSS Module 哈希，而 `identity` 是
+      // `relative(process.cwd(), abs)` —— 在各自仓库根目录下求值。两个插件若都有
+      // `src/client/settings-card.module.css`，identity 就是一串相同的字符，哈希
+      // 于是相同、类名完全相同（曾与 dsh-project-groups 撞了 10 个）。
+      //
+      // 注入用的 `tagId` 带包名，但那只让两张样式表不互相覆盖 —— 不隔离选择器。
+      // 两个插件同时装着时两张表都生效，`.X_section` 会命中对方的元素。实测：
+      // DPG 的 `.section > :first-child { margin-top: -12px }` 落到本插件的
+      // `<h3>` 上，把分组标题从 section 顶部 16px 拽到 4px。
+      //
+      // 前缀包名后同一个文件在两个仓库得到不同哈希。注意这里只影响哈希：`identity`
+      // 本身仍用于 `resolve`/`inlineCssImages`，未受影响。
       const { code, exports: cssExports } = transform({
-        filename: identity,
+        filename: `${PACKAGE_NAME}/${identity}`,
         code: Buffer.from(source, 'utf8'),
         cssModules: { pattern: '[hash]_[local]' },
         minify: true,

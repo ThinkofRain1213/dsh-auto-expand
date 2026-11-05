@@ -303,10 +303,20 @@ export const AutoGroupSeat = memo(function AutoGroupSeat({ groupKey, useChatGrou
     if (!open) initialize(closed === false ? 'bottom' : 'top')
     toggleDisclosure()
   }, [closed, initialize, open, toggleDisclosure])
+  // next-input 时机下，高度上限只作用于读者打开的 group。正在关闭的 body
+  // 保留它最后一次显示时的上限，使过渡从屏幕上的样子开始：
+  // 读者打开的 group 从上限收起，而由「平铺的最新 Turn」变成历史的 group
+  // 从它的平铺高度收起。
+  //
+  // 这三行必须在 `return null` 之前：`setClosingCap` 是渲染期 setState，
+  // 放在条件返回之后会违反 hooks 规则。
+  const shownCap = !grouped ? false : open ? true : undefined
+  const [closingCap, setClosingCap] = useState(shownCap ?? true)
+  if (shownCap !== undefined && shownCap !== closingCap) setClosingCap(shownCap)
   if (members === undefined) return null
   // 高度上限只作用于读者打开的 group；正在关闭的 body 保留平铺高度，
   // 使过渡从屏幕上的样子开始，而不是先跳到上限。（官方逐字保留）
-  const capped = grouped && (!deferCompletedTurns || open)
+  const capped = grouped && (!deferCompletedTurns || (shownCap ?? closingCap))
   // 改动 5（高度设置）：把「上限是多少」接上去。
   //
   // 只消费官方 `capped`，不重算 `grouped` —— detailed 模式下 `capped` 恒假，

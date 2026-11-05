@@ -6,7 +6,7 @@
  *
  * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
  */
-import type { ChatNode, ChatStoreState, TurnProcessSpec, TurnProcessViewEntry } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { AssistantBlock, ChatNode, ChatStoreState, TurnProcessSpec, TurnProcessViewEntry } from '@deepseek-ai/dsh-client-ui-chat/client'
 
 /** 克隆自 `contract/group-tree.ts`：分组树位置，由外向内。 */
 export type ChatGroupTree = 'exchange' | 'input' | 'turn' | 'process'
@@ -73,4 +73,20 @@ export function turnProcessOpen(
   const stored = storedTurnProcessEntry(state, spec.turn)
   if (stored === undefined || stored.answerStep !== (spec.answerStep ?? 0)) return defaultOpen
   return stored.collapsed !== true
+}
+
+/**
+ * 克隆自 `contract/assistant-content.ts`（0.2.2-rc.1 新增）。
+ *
+ * 判断助理块里是否有面向用户的回复，而不是只有思考或工具调用协议内容。
+ * 供 `foldedReplies` 决定哪些行留在整轮折叠之外。
+ * @param blocks - 助理内容块。
+ * @returns 是否含有可见的回复内容。
+ */
+export function hasAssistantReplyContent(blocks: readonly AssistantBlock[]): boolean {
+  return blocks.some((block) => {
+    if (block.kind === 'reasoning' || block.kind === 'tool-call') return false
+    if (block.kind === 'text') return block.text.trim() !== ''
+    return true
+  })
 }

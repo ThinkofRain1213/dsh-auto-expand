@@ -71,10 +71,13 @@ export const AutoAssistantNodeView = memo(function AutoAssistantNodeView({
     [fileMentions, owner, getFileTriggerProps],
   )
   // 第一层的职责：整轮折叠时隐藏属于该过程披露的思考。
+  const keepReplies = usePresentation(policy => policy.foldedReplies === 'all')
+  // 保留全部回复时，回复行留在折叠外，但它的行内思考仍随折叠隐藏。
   const reasoningHidden = turnProcess !== undefined
     && turnProcess.foldable
-    && turnProcess.spec.answerStep === data.step
-    && turnProcess.spec.inlineReasoning
+    && (keepReplies
+      ? groupPart !== 'reasoning'
+      : turnProcess.spec.answerStep === data.step && turnProcess.spec.inlineReasoning)
     && !turnProcess.open
   const revealProcess = useCallback(() => { turnProcess?.setOpen(true) }, [turnProcess])
   return (

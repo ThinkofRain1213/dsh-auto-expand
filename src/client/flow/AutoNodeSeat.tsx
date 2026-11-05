@@ -20,7 +20,7 @@ import type {
 } from '../contract/slots.ts'
 import type { ChatNode } from '../contract/chat-nodes.ts'
 import type { ChatNodeStore } from '../contract/snapshot.ts'
-import { isAtOrOutside, turnProcessAlwaysOpen, turnProcessOpen } from '../contract/chat-contract.ts'
+import { hasAssistantReplyContent, isAtOrOutside, turnProcessAlwaysOpen, turnProcessOpen } from '../contract/chat-contract.ts'
 import { hiddenOrCollapsing } from './flow-utils.ts'
 import css from './chat-flow.module.css'
 
@@ -86,14 +86,21 @@ export const AutoNodeSeat = memo(function AutoNodeSeat({
     }
   }, [actions, processSpec, alwaysOpen])
   const foldCompleted = usePresentation(policy => policy.foldCompletedTurns)
+  const keepReplies = usePresentation(policy => policy.foldedReplies === 'all')
   // 已加载的结束让部分历史 Turn 无需起点也可参与折叠。
   const processWindowReady = processSpec !== undefined
     && processPresentation !== undefined
     && foldCompleted
     && processPresentation.turn === processSpec.turn
     && (processPresentation.turnStarted || processPresentation.turnClosed)
+  // 「保留全部回复」时，助理回复行留在整轮折叠之外；它的思考仍是过程内容。
+  const replyRow = keepReplies
+    && routedNode?.kind === 'assistant-step'
+    && groupPart !== 'reasoning'
+    && hasAssistantReplyContent(routedNode.data.blocks)
   const processMember = routedNode !== undefined
     && processWindowReady
+    && !replyRow
     && !isAtOrOutside(routedNode, 'turn')
     && routedNode.anchorSeq >= processSpec.processStartSeq
     && (liveProcess || processSpec.answerAnchorSeq === null || routedNode.anchorSeq < processSpec.answerAnchorSeq
@@ -104,7 +111,7 @@ export const AutoNodeSeat = memo(function AutoNodeSeat({
     && groupPart !== 'reasoning'
     && routedNode.kind === 'assistant-step'
     && routedNode.data.step === processSpec.answerStep
-  const ownsDisclosure = routedNode?.kind === 'turn-process' || processAnswer
+  const ownsDisclosure = routedNode?.kind === 'turn-process' || processAnswer || replyRow
   const foldable = processWindowReady
     && (liveProcess || processMember || ownsDisclosure)
   const turnProcess = useMemo(() => processSpec === undefined
@@ -112,18 +119,17 @@ export const AutoNodeSeat = memo(function AutoNodeSeat({
     : {
       spec: processSpec,
       foldable,
-      hasContent: !interleavedInput && (processPresentation?.hasExternalProcess === true || processSpec.inlineReasoning),
+      hasContent: !interleavedInput && (processSpec.inlineReasoning || (keepReplies
+        ? processPresentation?.hasNonReplyProcess === true
+        : processPresentation?.hasExternalProcess === true)),
       open: processOpen,
       setOpen,
     }, [
-    foldable, interleavedInput, processOpen, processSpec, processPresentation?.hasExternalProcess, setOpen,
+    foldable, interleavedInput, keepReplies, processOpen, processSpec,
+    processPresentation?.hasExternalProcess, processPresentation?.hasNonReplyProcess, setOpen,
   ])
   const controllerInactive = routedNode?.kind === 'turn-process'
     && foldCompleted && !foldable
-  const compactAnswer = processAnswer
-    && foldable
-    && processPresentation.compactAnswer
-    && !processOpen
   const processHidden = controllerInactive || (foldable && processMember && !processOpen)
   const revealProcess = useCallback(() => {
     if (processMember) setOpen(true)
@@ -171,7 +177,6 @@ export const AutoNodeSeat = memo(function AutoNodeSeat({
       data-chat-turn={turn}
       data-turn-process-member={processMember || undefined}
       data-turn-process-hidden={processHidden || undefined}
-      data-turn-process-answer={compactAnswer || undefined}
     >
       {renderSlot('conversation.chat.node', routedOwner, {
         entryKey: routedNode.kind,

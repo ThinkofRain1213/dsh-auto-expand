@@ -21,17 +21,17 @@
 /** 上游包与其源码根（相对 checkout 根目录）。 */
 export const PACKAGES = {
   '@deepseek-ai/dsh-client-ui-chat': {
-    version: '0.2.1-rc.3',
+    version: '0.2.2-rc.1',
     sourceRoot: 'packages/client/ui-chat/src/client',
   },
   '@deepseek-ai/dsh-client-ui-conversation': {
-    version: '0.2.1-rc.3',
+    version: '0.2.2-rc.1',
     sourceRoot: 'packages/client/ui-conversation/src/client',
   },
 }
 
 /** 记录的上游 commit（= 克隆时对照的 checkout HEAD）。 */
-export const UPSTREAM_COMMIT = '1f81c047fc'
+export const UPSTREAM_COMMIT = '66491b05e3'
 
 /**
  * 每个克隆文件的上游出处。
@@ -64,6 +64,12 @@ export const ENTRIES = [
   {
     local: 'src/client/assistant/AutoReasoningRow.module.css',
     sources: ['ui-chat:chat/ReasoningRow.module.css'],
+    kind: 'verbatim',
+  },
+  {
+    // rc.1 新增：剥离 `<signature>` 协议块。整份克隆，未改动。
+    local: 'src/client/assistant/reasoning-text.ts',
+    sources: ['ui-chat:reasoning-text.ts'],
     kind: 'verbatim',
   },
   {

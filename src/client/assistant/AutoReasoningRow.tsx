@@ -26,6 +26,7 @@ import { useAutoDisclosure } from '../auto-disclosure.ts'
 import { useAutoExpandSettings } from '../settings.ts'
 import { autoOpenFor, isLatestAnchor, isLatestStep } from '../collapse-timing.ts'
 import { GroupOpenContext } from '../group-open-context.ts'
+import { reasoningText } from './reasoning-text.ts'
 import a11yCss from '../flow/accessibility.module.css'
 import css from './AutoReasoningRow.module.css'
 
@@ -128,7 +129,12 @@ export const AutoReasoningRow = memo(function AutoReasoningRow({
     isLatestNode: isLatestAnchor(anchorSeq, group.latestStartedAnchorSeq),
     enabled: settings.reasoningAutoExpand && group.open && group.auto,
   }))
-  const summaryText = running ? latestCompletedParagraphFirstLine(text) : firstLine(text)
+  // 剥离 `<signature>` 协议块。剥完为空时整行不渲染，否则会留下空白思考行。
+  const { text: displayText, hidden } = useMemo(() => {
+    const next = reasoningText(text)
+    return { text: next, hidden: next !== text && next.trim() === '' }
+  }, [text])
+  const summaryText = running ? latestCompletedParagraphFirstLine(displayText) : firstLine(displayText)
   const summary = useMemo(() => summaryText.replaceAll('**', ''), [summaryText])
   const preview = usePresentation(policy => !expanded && summary !== ''
     && (running || policy.settledReasoningPreview))
@@ -144,10 +150,14 @@ export const AutoReasoningRow = memo(function AutoReasoningRow({
   ), [running, summary])
   const content = useMemo(() => expanded ? (
     <div className={css.thinkBody}>
-      {/* 官方 Body Slot：排版（compact Markdown）与官方完全一致 */}
-      {renderSlot('conversation.chat.reasoning.body', { text, running })}
+      {/* 官方 Body Slot：排版（compact Markdown）与官方完全一致。
+          rc.1 起该 slot 要求同时给出原始文本与显示文本。 */}
+      {renderSlot('conversation.chat.reasoning.body', { rawText: text, text: displayText, running })}
     </div>
-  ) : undefined, [expanded, renderSlot, running, text])
+  ) : undefined, [expanded, renderSlot, running, text, displayText])
+
+  // 整段都是 signature 协议内容：没有任何可显示的东西，整行不渲染。
+  if (hidden) return null
 
   return (
     <div

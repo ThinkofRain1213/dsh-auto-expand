@@ -3,6 +3,68 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。DSH 目标版本写在
 `package.json` 的 `engines.dsh` 里，只在与之匹配的 DSH 版本上保证行为。
 
+## [0.2.2] — 2026-11-05
+
+重同步到 DSH `0.2.2-rc.1`。**这是破坏性升级：不再支持 0.2.1 线。**
+
+### ⚠️ 不再支持 0.2.1
+
+`engines.dsh` 改为 `>=0.2.2-rc.1 <0.2.3`。npm 的 semver 默认不匹配预发布版本，
+没有一条范围能同时覆盖 `0.2.1` 与 `0.2.2` 的预发布版（实测确认），因此无法
+在同一个版本里兼顾两条线。
+
+### ✨ 跟进：官方的「收起后显示回复」
+
+0.2.2 新增设置项 `foldedReplies`（默认「显示全部回复」）。此前我们的克隆用的是
+旧判据，用户把它设成「全部」后，官方本应把每条回复留在折叠区外，而插件照旧
+折进去 —— **用户设的开关被插件否决了**。本次补齐整条链路：
+
+- `AutoNodeSeat`：新增 `replyRow` 判据，回复行排除在折叠区外；
+  `hasContent` 改用 `hasNonReplyProcess`
+- `AutoAssistantNodeView`：`reasoningHidden` 按 `foldedReplies` 走两分支
+- `AutoGroupSeat`：补 `shownCap` / `closingCap`，收起动画从屏幕上的实际高度出发
+- 新增 `hasAssistantReplyContent()`（内联自上游 `contract/assistant-content.ts`）
+
+### ✨ 跟进：其余上游行为
+
+- **思考签名剥离**：新增 `reasoning-text.ts`，剥离模型输出里的 `<signature>`
+  协议块；剥完为空时整行不渲染，不再留下空白思考行
+- **断线冻结**：`RunningStatus` 新增 `paused`，Client 观察不到 Session 时
+  计时器停止空转
+- **Turn 收尾保持**：新增 `holding`，Session 已停而 Turn 未关闭时保留状态槽位
+  （隐藏），避免动作行接替时尾部抖动
+- **待处理回声排序**：`AutoFlow` 的 pending 行改为 leading / opening / pending
+  三段分组，转录回声与 steering 项各归其位
+- **剪贴板**：`PendingIconActions` 改用官方 `useClipboardCopy`
+- **文本选择源**：`textInteractionSource` 透传到 Markdown 与思考行
+
+### 🔧 依赖与构建
+
+- `cordis` `4.0.5` → `4.1.0`；`schemastery` `~3.18.5` → `~3.19.0`
+- 六个 `@deepseek-ai/dsh-*` 包 → `0.2.2-rc.1`
+- 新增 `pnpm-workspace.yaml`：rc.1 刚发布，未过 pnpm 的最小发布年龄策略，
+  需要 `minimumReleaseAgeExclude` 才能安装
+- `tsdown.config.ts` 的 CSS 资源内联正则现在同时接受 `./` 与 `../` 前缀：
+  上游把鲸鱼图移到了 `client/assets/`，CSS 路径随之变成 `../assets/`，
+  旧正则匹配不到会导致图片不内联、运行时 404
+- 鲸鱼图移动到 `src/client/assets/`（与上游目录结构一致）
+
+### 🎨 观感变化
+
+- 操作组内行间距 `--dsh-chat-flow-gap` 从 `6px` 收紧到 `4px`（跟进上游）
+- 运行指示器改为 44px 固定槽位，分隔线由 `display` 切换改为绝对定位 + 透明度
+
+### 🧪 测试
+
+新增 `tests/folded-replies.spec.mjs`（7 项）与 `tests/reasoning-text.spec.mjs`
+（7 项），覆盖本次两个关键判据。全套 215 项通过。
+
+### 📌 已知的验证限制
+
+`verify-css-isolation` 会在本次的 worktree 布局下报「与自己撞名」的假阳性 ——
+它扫描项目同级目录寻找兄弟插件，而 worktree 与原项目同名同级。排除重名干扰后
+该项 `ALL CHECKS PASSED`。
+
 ## [0.2.1] — 2026-10-28
 
 修复与 `dsh-project-groups` 的 CSS 类名撞车。**同时装了这两个插件的人必须升级。**

@@ -62,6 +62,8 @@ export interface AutoAssistantMarkdownProps extends
   groupPart?: string | undefined
   blocks: readonly AssistantBlock[]
   streaming: boolean
+  /** 只有已结算的持久 Assistant 消息才提供文本选择源。 */
+  textInteractionSource?: boolean
   /** 已中止 Turn 的冻结部分：渲染时带停止标记。 */
   interrupted?: boolean | undefined
   /** 隐藏属于 Turn 级过程披露的思考。 */
@@ -80,7 +82,7 @@ export interface AutoAssistantMarkdownProps extends
 
 /** 把非空白 reasoning 块渲染为独立 disclosure，与回复并列。 */
 export const AutoAssistantMarkdown = memo(function AutoAssistantMarkdown({
-  step, anchorSeq, blocks, streaming, interrupted, loadImage, groupPart,
+  step, anchorSeq, blocks, streaming, textInteractionSource = false, interrupted, loadImage, groupPart,
   reasoningHidden = false, usePresentation, revealProcess, mentions, renderSlot, useGroupAction, t,
 }: AutoAssistantMarkdownProps) {
   // 按 locale 修订稳定（t 身份在切换时变化）：每次渲染新建对象会让
@@ -113,6 +115,7 @@ export const AutoAssistantMarkdown = memo(function AutoAssistantMarkdown({
             labels={labels}
             fileMentions={mentions}
             pathImages={pathImages}
+            textInteractionSource={textInteractionSource}
           />,
         )
         break
@@ -134,6 +137,7 @@ export const AutoAssistantMarkdown = memo(function AutoAssistantMarkdown({
               running={streaming && i === last}
               usePresentation={usePresentation}
               renderSlot={renderSlot}
+              textInteractionSource={textInteractionSource}
               t={t}
             />
           </ProcessReasoning>,

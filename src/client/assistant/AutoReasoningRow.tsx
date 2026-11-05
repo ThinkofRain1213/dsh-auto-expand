@@ -91,6 +91,8 @@ export interface AutoReasoningRowProps {
   text: string
   /** 该块是否为流式尾部。 */
   running: boolean
+  /** 正文是否作为文本选择源（只有已结算的持久消息才提供）。 */
+  textInteractionSource?: boolean
   /** 本行思考正文的 Body Slot 渲染器。 */
   renderSlot: PropsRenderSlots<'conversation.chat.reasoning.body'>['renderSlot']
   /** 实时展示策略（决定折叠态是否显示摘要预览）。 */
@@ -107,7 +109,7 @@ export interface AutoReasoningRowProps {
  * @returns 思考的 disclosure。
  */
 export const AutoReasoningRow = memo(function AutoReasoningRow({
-  step, anchorSeq, text, running, usePresentation, renderSlot, t,
+  step, anchorSeq, text, running, textInteractionSource = false, usePresentation, renderSlot, t,
 }: AutoReasoningRowProps) {
   // 所属操作组的展开状态与两个坐标（P8 信号层）。
   const group = useContext(GroupOpenContext)
@@ -149,12 +151,12 @@ export const AutoReasoningRow = memo(function AutoReasoningRow({
     </>
   ), [running, summary])
   const content = useMemo(() => expanded ? (
-    <div className={css.thinkBody}>
+    <div className={css.thinkBody} data-text-interaction-source={textInteractionSource && !running ? '' : undefined}>
       {/* 官方 Body Slot：排版（compact Markdown）与官方完全一致。
           rc.1 起该 slot 要求同时给出原始文本与显示文本。 */}
       {renderSlot('conversation.chat.reasoning.body', { rawText: text, text: displayText, running })}
     </div>
-  ) : undefined, [expanded, renderSlot, running, text, displayText])
+  ) : undefined, [expanded, renderSlot, running, text, displayText, textInteractionSource])
 
   // 整段都是 signature 协议内容：没有任何可显示的东西，整行不渲染。
   if (hidden) return null

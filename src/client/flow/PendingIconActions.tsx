@@ -1,17 +1,17 @@
 /**
- * 克隆自 `chat/MessageIconActions.tsx`（115 行）中 pending bubble 用到的部分。
+ * 克隆自 `chat/MessageIconActions.tsx` 中 pending bubble 用到的部分。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.1，commit 66491b05e3
  *
  * pending bubble 只用到"时钟 + 复制"这一条 actions 行，不带 branch / usage。
  * 因此这里只保留 `text` / `time` / `clock` / `className` 四个输入，去掉
  * `onBranch`、`branchUnavailable`、`extraActions`、`usageAction` 分支。
  *
- * 复制行为逐字保留：成功后 1 秒内显示对勾，窗口内重复点击不叠加计时器。
+ * rc.1 起复制反馈改用官方 `useClipboardCopy`（内部同样带重复点击闸门与
+ * 卸载清理），因此这里不再手写 copied/copyPending/copyTimer/copyEpoch。
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  IconCheckOutlineRegular, IconCopyOutlineRegular, Tooltip, writeClipboard,
+  IconCheckOutlineRegular, IconCopyOutlineRegular, Tooltip, useClipboardCopy,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { formatMessageClock } from './message-chrome.ts'
@@ -37,32 +37,7 @@ export interface PendingIconActionsProps {
  */
 export function PendingIconActions({ text, time, clock, className, t }: PendingIconActionsProps) {
   const day = useCalendarDay()
-  // 与 CodeBlock 相同的成功反馈：写入后短暂换成对勾，并用闸门避免
-  // 窗口内重复点击既重复复制又叠加计时器。
-  const [copied, setCopied] = useState(false)
-  const copyPending = useRef(false)
-  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const copyEpoch = useRef(0)
-  useEffect(() => () => {
-    copyEpoch.current += 1
-    copyPending.current = false
-    if (copyTimer.current !== null) clearTimeout(copyTimer.current)
-  }, [])
-  const onCopy = useCallback(() => {
-    if (copied || copyPending.current) return
-    const epoch = copyEpoch.current
-    copyPending.current = true
-    void writeClipboard(text).then((ok) => {
-      if (epoch !== copyEpoch.current) return
-      copyPending.current = false
-      if (!ok) return
-      setCopied(true)
-      copyTimer.current = setTimeout(() => {
-        copyTimer.current = null
-        setCopied(false)
-      }, 1000)
-    })
-  }, [copied, text])
+  const { copied, onCopy } = useClipboardCopy(text)
   const clockEl = time === undefined ? null : (
     <span className={clock === 'start' ? css.timeStart : css.timeEnd}>
       {formatMessageClock(time, t as unknown as (key: string, params?: Record<string, unknown>) => string, day)}

@@ -91,6 +91,7 @@ export const AutoAssistantNodeView = memo(function AutoAssistantNodeView({
       blocks={data.blocks}
       groupPart={groupPart}
       streaming={data.status === 'running'}
+      textInteractionSource={data.status === 'settled' && data.finalNode?.messageId !== undefined}
       interrupted={data.status === 'interrupted'}
       loadImage={loadImage}
       reasoningHidden={reasoningHidden}

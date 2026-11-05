@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/ChatView.module.css`（265 行）中与 flow 行相关的部分。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.1，commit 66491b05e3
  *
  * 只保留 `AutoNodeSeat`、`AutoFlow`（RunningStatus / RunningWhaleTail）用到的类。
  * 选择器里的 `.column` 依赖 `ChatView` 的列容器，本插件不替换 `ChatView`，
@@ -32,10 +32,15 @@
   --dsh-chat-flow-gap: 12px;
 }
 
-/* Turn header 与它的输入及后续内容有 16px 间距。 */
+/* Turn header 与它的输入及后续内容有 16px 间距。运行中 Turn 的控件在 Turn
+   关闭前渲染为空；它后面的回声仍是该 Turn 的开启型输入，因此保留输入间距。 */
 .flowItem[data-chat-flow-kind="turn-process"],
-.flowItem[data-turn-process-answer],
-:global([data-slot="conversation.chat.flow"]) > [data-chat-flow-kind="turn-process"] + :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))):not(.running) {
+:global([data-slot="conversation.chat.flow"])
+  > [data-chat-flow-kind="turn-process"]:not(:empty, :has(> [data-slot="conversation.chat.node"]:empty))
+  + :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))):not(.running):not(:has(> [data-slot="conversation.chat.node"] > [data-chat-steering-batch])),
+:global([data-slot="conversation.chat.flow"])
+  > [data-chat-flow-kind="turn-process"]
+  + :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))):not(.running):not([data-submission-echo], [data-pending-steering]):not(:has(> [data-slot="conversation.chat.node"] > [data-chat-steering-batch])) {
   --dsh-chat-flow-gap: 16px;
 }
 
@@ -60,6 +65,46 @@
 :global([data-slot="conversation.chat.flow"])
   > .flowItem:is(:empty, :has(> :global([data-slot="conversation.chat.node"]):empty)) {
   margin-top: 0 !important;
+}
+
+/* 尾部槽位：运行状态与已完成 Turn 的动作行都占「16px 偏移 + 28px 行」。
+   steering 渲染器给每个 claim 的第一条 steering 行打标记，该行保留它上方的
+   槽位，就像已完成 Turn 的动作行排在下一条用户消息之前；同批 claim 的行之间
+   仍相隔 4px，而开启型输入保持普通间距。等待中的第一条回声紧贴运行状态下方，
+   因此 admission 只是把两者互换，不会有气泡位移。相邻间距规则排除 batch
+   start，使这个槽位恒生效。 */
+:global([data-slot="conversation.chat.flow"])
+  > .flowItem:has(> :global([data-slot="conversation.chat.node"]) > [data-chat-steering-batch="start"]) {
+  --dsh-chat-flow-gap: calc(44px + var(--dsh-content-font-delta, 0px));
+}
+
+.running + [data-pending-steering] {
+  --dsh-chat-flow-gap: 0px;
+}
+
+/* 已完成 Turn 的动作行占据尾部槽位；状态可能还跟着它一帧 —— 在 Session
+   停止运行前，或在排队的 Turn 之间。 */
+.flowItem[data-chat-flow-kind="turn-tail"] + .running {
+  display: none;
+}
+
+/* steering 行自插入起就保持完整布局，只有状态在移动：它从高一个槽位处进入
+   这些行下方的新位置，与该行数量、高度无关。淡入遮住了这段差值，因此这个入场
+   可近似那次移动。 */
+@media (prefers-reduced-motion: no-preference) {
+  :where(:global([data-slot="conversation.chat.flow"]) > .flowItem[data-chat-flow-kind="steering"]) + .running {
+    animation: running-enters-slot 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
+
+@keyframes running-enters-slot {
+  from {
+    opacity: 0;
+    translate: 0 calc(-44px - var(--dsh-content-font-delta, 0px));
+  }
+  40% {
+    opacity: 1;
+  }
 }
 
 /* 运行指示器：底部状态行。 */

@@ -35,6 +35,12 @@
   （隐藏），避免动作行接替时尾部抖动
 - **待处理回声排序**：`AutoFlow` 的 pending 行改为 leading / opening / pending
   三段分组，转录回声与 steering 项各归其位
+- **尾部槽位**（`chat-flow.module.css`）：补上与 rc.1 一致的整组规则 ——
+  steering 批次首行保留 44px 尾部槽位、等待回声紧贴状态行（0 间距）、
+  已完成 Turn 的动作行占据槽位时隐藏状态、以及 `running-enters-slot` 入场动画。
+  这些选择器同时依赖 `.flowItem` / `.running` 两个 CSS Modules 哈希类名，
+  官方样式表匹配不到我们渲染的行，**本克隆是唯一样式来源**，漏掉会让
+  admission 时气泡位置跳变，或在与排队 Turn 的竞态中多渲染一条运行状态行
 - **剪贴板**：`PendingIconActions` 改用官方 `useClipboardCopy`
 - **文本选择源**：`textInteractionSource` 透传到 Markdown 与思考行
 
@@ -56,8 +62,14 @@
 
 ### 🧪 测试
 
-新增 `tests/folded-replies.spec.mjs`（7 项）与 `tests/reasoning-text.spec.mjs`
-（7 项），覆盖本次两个关键判据。全套 215 项通过。
+新增 `tests/folded-replies.spec.mjs`（7 项，覆盖 `hasAssistantReplyContent`
+的叶子判定）与 `tests/reasoning-text.spec.mjs`（7 项，覆盖签名剥离的全部边界）。
+全套 215 项通过。
+
+> 说明：`foldedReplies` 的**主链路判据**（`keepReplies` / `replyRow` /
+> `processMember` / `ownsDisclosure` / `hasContent`）目前仍无自动化测试覆盖 ——
+> 它们在 `AutoNodeSeat` 组件内部，抽出纯函数会触碰「不改现有实现」的约束。
+> 本次已逐字符对照上游源码确认一致，但缺少回归保护，属已知缺口。
 
 ### 📌 已知的验证限制
 

@@ -2,7 +2,7 @@
  * 克隆自 `chat/MessageItem.module.css`（`.userRow`）与
  * `chat/MessageIconActions.module.css`（图标行样式）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.1，commit 66491b05e3
  *
  * 只保留 pending bubble 与它的 IconActions 行用到的类。
  */
@@ -85,7 +85,9 @@
   height: calc(17px + var(--dsh-content-font-delta, 0px));
 }
 
-.action:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-secondary);
+@media (hover: hover) {
+  .action:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-secondary);
+  }
 }

@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/ChatGroupSeat.tsx`（203 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.1，commit 66491b05e3
  *
  * 修改点（五处，其余逐字保留）：
  *   1. 本地 `useDisclosure()` → `useAutoDisclosure(!closed)`：body 默认展开，

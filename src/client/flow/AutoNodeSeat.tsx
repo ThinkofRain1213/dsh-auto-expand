@@ -1,10 +1,11 @@
 /**
  * 克隆自 `chat/ChatNodeSeat.tsx`（174 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.1，commit 66491b05e3
  *
  * 修改点（仅一处）：
- *   - 渲染 `AutoGroupSeat` 而非官方 `ChatGroupSeat`（`AutoFlow` 中分发）。
+ *   - 由 `AutoFlow` 分发到本插件自己的 `AutoAssistantNodeView`（在 `renderSlot`
+ *     的 fallback 里），而不是官方 `AssistantNodeView`。
  *
  * 其余逻辑逐字保留，包括第一层（整轮折叠）的全部判定、`disclosureReset`
  * 机制、以及 `data-*` 属性。第一层不属本插件范围，必须与官方完全一致。

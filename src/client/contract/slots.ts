@@ -46,15 +46,15 @@ export type ContextMenuTriggerProps =
   Pick<import('react').HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>
 
 /**
- * 补 `useContextMenu` 进 session 作用域标准面。
+ * 右键菜单 hook 的形状。
  *
- * 上游由 `@deepseek-ai/dsh-client-ui-context-menu` 做同样的合并，本仓库没装
- * 那个包，因此类型层缺失。**只在类型层补**：运行时该 hook 由宿主注入，
- * `wrapEntry` 不改官方 component 的派发路径。
+ * **刻意不合并进 `SessionStandardProps`**：本包 `types` 指向 `src/`，任何
+ * TypeScript 消费者都会把这里的声明拉进自己的程序；若同时存在
+ * `@deepseek-ai/dsh-client-ui-context-menu` 的真实合并，两个同名成员类型不
+ * 一致会触发 TS2717。改为让组件以自己的 props 交叉类型声明它（交叉类型取
+ * 交集，不产生全局声明冲突）。
  */
-declare module '@deepseek-ai/dsh-client-ui-slots' {
-  interface SessionStandardProps {
-    /** 当前 Session 作用域的右键菜单手势工厂。 */
-    useContextMenu: () => { getTriggerProps: (build: () => unknown) => ContextMenuTriggerProps }
-  }
+export interface ContextMenuHook {
+  /** 把一个手势构造函数包装成可展开到元素上的触发属性。 */
+  useContextMenu: () => { getTriggerProps: (build: () => unknown) => ContextMenuTriggerProps }
 }

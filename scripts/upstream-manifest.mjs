@@ -181,6 +181,9 @@ export const ENTRIES = [
       'ui-chat:contract/group-tree.ts',
       'ui-chat:contract/turn-process.ts',
       'ui-chat:stores.ts',
+      // rc.1 新增：`hasAssistantReplyContent`，决定 foldedReplies='all' 时
+      // 哪些助理行留在折叠之外。漏登记会让上游改动被静默吞掉。
+      'ui-chat:contract/assistant-content.ts',
     ],
     kind: 'partial',
   },

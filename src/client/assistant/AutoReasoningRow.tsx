@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/ReasoningRow.tsx`（102 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.1，commit 66491b05e3
  *
  * 修改点（一处）：
  *   - `useDisclosure()` → `useAutoDisclosure(autoOpenFor(...))`（可配置的收起时机）。

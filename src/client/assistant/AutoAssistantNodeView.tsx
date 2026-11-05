@@ -1,7 +1,7 @@
 /**
  * 克隆自 `chat/AssistantNodeView.tsx`（51 行）。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3，commit 1f81c047fc
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.1，commit 66491b05e3
  *
  * 修改点（一处）：
  *   - 渲染 `AutoAssistantMarkdown` 而非官方 `AssistantMarkdown`。
@@ -21,7 +21,7 @@
 import { memo, useCallback, useMemo } from 'react'
 import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  ChatFileMentions, ChatNodeViewProps, PresentationInjected, TurnTailOwnerProps,
+  ChatFileMentions, ChatNodeViewProps, ContextMenuHook, PresentationInjected, TurnTailOwnerProps,
 } from '../contract/slots.ts'
 import { AutoAssistantMarkdown } from './AutoAssistantMarkdown.tsx'
 
@@ -41,8 +41,15 @@ export interface AutoAssistantNodeInjected extends PresentationInjected {
   ) => ReturnType<ChatFileMentions['forClosing']>
 }
 
-/** 完整 props：node 视图 + presentation 注入 + 两个子 slot 的渲染器。 */
+/**
+ * 完整 props：node 视图 + presentation 注入 + 右键菜单 hook + 两个子 slot 的渲染器。
+ *
+ * `ContextMenuHook` 以**交叉类型**方式声明，而不是合并进全局的
+ * `SessionStandardProps` —— 后者会污染本包所有 TS 消费者，且与上游真实声明
+ * 相撞时报 TS2717。
+ */
 type AutoAssistantNodeViewProps = ChatNodeViewProps<'assistant-step'> & InjectFace<AutoAssistantNodeInjected>
+  & ContextMenuHook
   & PropsRenderSlots<'conversation.chat.reasoning.body' | 'conversation.chat.message.images'>
 
 /**
@@ -52,7 +59,13 @@ export const AutoAssistantNodeView = memo(function AutoAssistantNodeView({
   node, groupPart, useGroupAction, useTurnData, turnProcess, openFile, loadImage, fileMentions,
   usePresentation, renderSlot, t, sessionId, useContextMenu, resolveFilePath,
 }: AutoAssistantNodeViewProps) {
-  const { getTriggerProps } = useContextMenu()
+  // 我们整份替换了官方组件，宿主若没注入这个 hook（版本不匹配、被别的插件
+  // 覆盖、上游拆包），直接调用会抛 TypeError 并让整行渲染崩掉 —— 违反
+  // wrap.ts 的约定「所有失败都降级为插件不生效，绝不让 DSH 崩溃」。
+  // 缺失时退化为「没有右键手势」，文件提及的普通点击仍照常工作。
+  const { getTriggerProps } = typeof useContextMenu === 'function'
+    ? useContextMenu()
+    : { getTriggerProps: () => ({}) }
   const getFileTriggerProps = useCallback((path: string) => getTriggerProps(() => ({
     kind: 'file', value: { sessionId, path: resolveFilePath(path) },
   })), [getTriggerProps, sessionId, resolveFilePath])

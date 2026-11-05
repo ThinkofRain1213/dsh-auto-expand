@@ -68,7 +68,8 @@ export interface GroupHeightInput {
    */
   readonly groupAutoExpand: boolean
   /**
-   * 官方判据 `capped = grouped && (!deferCompletedTurns || open)` 的结果。
+   * 官方判据的结果（0.2.2-rc.1 起为
+   * `capped = grouped && (!deferCompletedTurns || (shownCap ?? closingCap))`）。
    *
    * **必须由调用方传入，不要在这里重算**：`grouped` 为假（官方 detailed 平铺
    * 模式）时 `capped` 恒假，重算会给本应无上限的组强加上限。

@@ -4,8 +4,8 @@
  * 这些函数在官方包里没有从 `@deepseek-ai/dsh-client-ui-chat/client` 导出，
  * 只能在此重实现。每个函数都标注了官方出处与上游 commit，便于升级时对照。
  *
- * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3
- * commit：687f282e86
+ * 上游：@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.1
+ * commit：66491b05e3
  */
 import type { RenderEntry } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ProcessActivitySummary } from '@deepseek-ai/dsh-client-ui-chat/client'

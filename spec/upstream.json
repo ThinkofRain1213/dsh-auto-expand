@@ -1,7 +1,7 @@
 {
   "$comment": "由 `pnpm drift:record` 生成。记录每个克隆文件在上游 checkout 里的内容哈希。",
   "commit": "66491b05e3",
-  "generatedAt": "2026-11-05T02:05:15.656Z",
+  "generatedAt": "2026-11-05T03:16:57.655Z",
   "packages": {
     "@deepseek-ai/dsh-client-ui-chat": {
       "version": "0.2.2-rc.1",
@@ -306,6 +306,11 @@
           "source": "ui-chat:stores.ts",
           "package": "@deepseek-ai/dsh-client-ui-chat",
           "sha256": "sha256-1587f1cc9895ee8d3b56b2ba876d4d5445473980380c34c9392ab84967ea4fa8"
+        },
+        {
+          "source": "ui-chat:contract/assistant-content.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-a736c22b643545b1acd072e850add94bdf628c25c13e5fb1dd1046fffaa18c85"
         }
       ]
     }

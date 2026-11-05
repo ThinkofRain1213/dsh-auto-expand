@@ -66,7 +66,7 @@ function turnOf(node: ChatNode | undefined): number | undefined {
 export const AutoNodeSeat = memo(function AutoNodeSeat({
   nodeKey, groupPart, useChatNode, useChatNodeProcess, usePresentation,
   cwd, openFile, inspectCall, forkAt,
-  loadImage, fileMentions, useStore, actions, renderSlot, t, useChatNodeBottom, deferCollapse, useGroupAction,
+  loadImage, useStore, actions, renderSlot, t, useChatNodeBottom, deferCollapse, useGroupAction,
 }: AutoNodeSeatProps) {
   const bottom = useChatNodeBottom(nodeKey)
   const node = useChatNode(nodeKey)
@@ -148,11 +148,10 @@ export const AutoNodeSeat = memo(function AutoNodeSeat({
       inspectCall,
       forkAt,
       loadImage,
-      fileMentions,
       turnProcess,
     }, [
     node, groupPart, cwd, openFile, inspectCall, forkAt,
-    loadImage, fileMentions, turnProcess,
+    loadImage, turnProcess,
   ])
   if (routedNode === undefined || owner === null) return null
   // 运行时按 Node 的判别式分派：每个 Node 的判别式就是与它一起传入的 keyed

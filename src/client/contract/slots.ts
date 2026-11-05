@@ -9,13 +9,13 @@
  * 具体 props 类型（它们从 `ChatFlowSlotProps` 推导）。
  */
 import type {
-  ChatNodeHookContext, ChatNodeOwnerProps, ChatFlowSlotProps, ChatNodeViewProps,
+  ChatFileMentions, ChatNodeHookContext, ChatNodeOwnerProps, ChatFlowSlotProps, ChatNodeViewProps,
   ChatViewSlotProps, UsePresentation, UseDisclosure, UseChatNodeTurnData,
   PresentationInjected, TurnTailOwnerProps, UseGroupAction,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 
 export type {
-  ChatNodeHookContext, ChatNodeOwnerProps, ChatFlowSlotProps, ChatNodeViewProps,
+  ChatFileMentions, ChatNodeHookContext, ChatNodeOwnerProps, ChatFlowSlotProps, ChatNodeViewProps,
   ChatViewSlotProps, UsePresentation, UseDisclosure, UseChatNodeTurnData,
   PresentationInjected, TurnTailOwnerProps, UseGroupAction,
 }
@@ -28,3 +28,33 @@ export type {
 export type {
   UserContentAttachment, UserContentData, UserContentInput,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
+
+/**
+ * 右键菜单手势绑定的形状。
+ *
+ * 上游声明在 `@deepseek-ai/dsh-client-ui-context-menu`，但本仓库没有安装
+ * 该包（`ui-chat` 的 peer 只有 cordis，它属于隐式依赖）。这里按它在
+ * Markdown 文件提及链路里的**实际落点**补一份最小结构：`forClosing` 收到
+ * 它，最终只用作 `MarkdownFileMentions.resolve()` 返回值的
+ * `contextMenuProps`，而那是 `Pick<HTMLAttributes<HTMLElement>,
+ * 'onContextMenu' | 'onKeyDown' | 'tabIndex'>`。
+ *
+ * 运行时不受影响：该 hook 由宿主 scope 标准面注入，`wrapEntry` 保留官方
+ * component 的派发路径。**上游若改签名，此处必须同步。**
+ */
+export type ContextMenuTriggerProps =
+  Pick<import('react').HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>
+
+/**
+ * 补 `useContextMenu` 进 session 作用域标准面。
+ *
+ * 上游由 `@deepseek-ai/dsh-client-ui-context-menu` 做同样的合并，本仓库没装
+ * 那个包，因此类型层缺失。**只在类型层补**：运行时该 hook 由宿主注入，
+ * `wrapEntry` 不改官方 component 的派发路径。
+ */
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface SessionStandardProps {
+    /** 当前 Session 作用域的右键菜单手势工厂。 */
+    useContextMenu: () => { getTriggerProps: (build: () => unknown) => ContextMenuTriggerProps }
+  }
+}

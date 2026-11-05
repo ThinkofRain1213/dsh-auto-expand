@@ -21,12 +21,28 @@
 import { memo, useCallback, useMemo } from 'react'
 import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  ChatNodeViewProps, PresentationInjected, TurnTailOwnerProps,
+  ChatFileMentions, ChatNodeViewProps, PresentationInjected, TurnTailOwnerProps,
 } from '../contract/slots.ts'
 import { AutoAssistantMarkdown } from './AutoAssistantMarkdown.tsx'
 
+/**
+ * 官方 `AssistantNodeInjected` 的本插件对应物。
+ *
+ * 上游 rc.1 起 `fileMentions` 多了一个 `getFileTriggerProps` 参数（右键菜单
+ * 手势绑定），而 `resolveFilePath` 负责把记录里的路径解析成 Host 路径。
+ */
+export interface AutoAssistantNodeInjected extends PresentationInjected {
+  /** 按当前 Session 目录解析路径。 */
+  resolveFilePath: (path: string) => string
+  /** 解析收尾 Turn 的文件提及，附带普通文件手势回调。 */
+  fileMentions: (
+    owner: TurnTailOwnerProps,
+    getFileTriggerProps: NonNullable<Parameters<ChatFileMentions['forClosing']>[2]>,
+  ) => ReturnType<ChatFileMentions['forClosing']>
+}
+
 /** 完整 props：node 视图 + presentation 注入 + 两个子 slot 的渲染器。 */
-type AutoAssistantNodeViewProps = ChatNodeViewProps<'assistant-step'> & InjectFace<PresentationInjected>
+type AutoAssistantNodeViewProps = ChatNodeViewProps<'assistant-step'> & InjectFace<AutoAssistantNodeInjected>
   & PropsRenderSlots<'conversation.chat.reasoning.body' | 'conversation.chat.message.images'>
 
 /**
@@ -34,8 +50,12 @@ type AutoAssistantNodeViewProps = ChatNodeViewProps<'assistant-step'> & InjectFa
  */
 export const AutoAssistantNodeView = memo(function AutoAssistantNodeView({
   node, groupPart, useGroupAction, useTurnData, turnProcess, openFile, loadImage, fileMentions,
-  usePresentation, renderSlot, t,
+  usePresentation, renderSlot, t, sessionId, useContextMenu, resolveFilePath,
 }: AutoAssistantNodeViewProps) {
+  const { getTriggerProps } = useContextMenu()
+  const getFileTriggerProps = useCallback((path: string) => getTriggerProps(() => ({
+    kind: 'file', value: { sessionId, path: resolveFilePath(path) },
+  })), [getTriggerProps, sessionId, resolveFilePath])
   const data = node.data
   const turn = node.location.kind === 'turn' || node.location.kind === 'step'
     ? node.location.turn
@@ -47,8 +67,8 @@ export const AutoAssistantNodeView = memo(function AutoAssistantNodeView({
     return { turn, seq: data.finalNode.seq, openFile }
   }, [data.finalNode, openFile, tail, turn])
   const mentions = useMemo(
-    () => owner === undefined ? undefined : fileMentions(owner),
-    [fileMentions, owner],
+    () => owner === undefined ? undefined : fileMentions(owner, getFileTriggerProps),
+    [fileMentions, owner, getFileTriggerProps],
   )
   // 第一层的职责：整轮折叠时隐藏属于该过程披露的思考。
   const reasoningHidden = turnProcess !== undefined

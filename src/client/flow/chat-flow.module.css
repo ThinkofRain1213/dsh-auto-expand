@@ -19,10 +19,10 @@
    `hidden="until-found"` 保留可搜索的零高度盒；隐藏与空座位不贡献间距。 */
 :global([data-slot="conversation.chat.flow"]) > :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty)))
   ~ :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))) {
-  margin-top: var(--dsh-chat-flow-gap, 6px);
+  margin-top: var(--dsh-chat-flow-gap, 4px);
 }
 
-/* Process 行之间相距 6px；Assistant 回复与邻居相隔 12px。 */
+/* Process 行之间相距 4px；Assistant 回复与邻居相隔 12px。 */
 .flowItem[data-chat-group-part="response"] {
   --dsh-chat-flow-gap: 12px;
 }
@@ -64,6 +64,7 @@
 
 /* 运行指示器：底部状态行。 */
 .running {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -74,28 +75,48 @@
   line-height: calc(22px + var(--dsh-content-font-delta, 0px));
 }
 
-/* 状态之前的最后一个可见行必须含输出而非输入。隐藏与空座位不分隔用户消息与状态。 */
-:global([data-slot="conversation.chat.flow"]) > :nth-last-child(2 of :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty)))):is(
+/* Session 停止运行后、该 Turn 的动作行到达前，状态隐身占住槽位，
+   这段时间尾部不会收缩。 */
+.running[data-holding] {
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* 状态之前的最后一个可见行必须含输出而非输入。隐藏与空座位不分隔用户消息与状态，
+   而状态之后那些 steering/Inbox 回声不计入这个计数。 */
+:global([data-slot="conversation.chat.flow"]) > :nth-last-child(2 of :not([hidden]):not([data-pending-steering]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty)))):is(
   .flowItem:not([data-chat-flow-kind="user"]):not([data-chat-flow-kind="steering"]):not([data-chat-flow-kind="turn-trigger"]),
   [data-chat-group-key]
 ) ~ .running > .runningDivider {
-  display: block;
+  opacity: 1;
 }
 
+/* 画在状态行上方那 16px 偏移之内，因此显示或隐藏它都不会改变尾部槽位的高度。 */
 .runningDivider {
-  display: none;
-  width: 100%;
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
   height: 0.5px;
-  margin: 8px 0 10px;
   background: color-mix(in srgb, var(--dsw-alias-border-l1) 75%, var(--dsw-alias-border-l2));
+  opacity: 0;
   pointer-events: none;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .runningDivider {
+    transition: opacity 160ms ease;
+  }
+}
+
+/* 与已完成 Turn 的尾部动作行同偏移、同高度。 */
 .runningContent {
   display: inline-flex;
   align-items: center;
   min-width: 0;
   gap: 6px;
+  margin-top: 4px;
+  height: calc(28px + var(--dsh-content-font-delta, 0px));
 }
 
 .runningText {
@@ -129,7 +150,7 @@
     .runningWhaleAnimated {
       display: block;
       background: currentColor;
-      mask: url('./running-whale@2x.png') center / 100% 100% no-repeat;
+      mask: url('../assets/running-whale@2x.png') center / 100% 100% no-repeat;
       mask-mode: alpha;
       /* 让动画遮罩的重绘留在图标大小的合成层上。 */
       will-change: transform;

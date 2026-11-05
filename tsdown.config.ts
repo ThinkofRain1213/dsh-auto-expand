@@ -77,10 +77,14 @@ const IMAGE_MEDIA_TYPES = {
 const cssIdentity = absolutePath => relative(process.cwd(), absolutePath).split(sep).join('/')
 
 /**
- * 把样式表里的 `url('./x.png')` 换成 data URL。
+ * 把样式表里的 `url('./x.png')` / `url('../x.png')` 换成 data URL。
  *
  * 必须在原始 CSS 上做（早于 `JSON.stringify` 包装），否则 base64 里的
  * `+` `/` `=` 会破坏生成的 JS 字符串字面量。
+ *
+ * **两种相对前缀都要认**：上游 0.2.2-rc.1 把鲸鱼图从 `chat/` 挪到了
+ * `client/assets/`，CSS 里的路径随之写成 `../assets/...`。只匹配 `./` 会让
+ * 它漏过内联，产物里留下一个指向不存在文件的相对路径，运行时 404。
  * @param css - 原始样式表文本。
  * @param identity - 样式表的仓库相对身份，用于解析相对资源路径。
  * @param ctx - 构建上下文，用于登记被引用的资源为 watch 依赖。
@@ -89,7 +93,7 @@ const cssIdentity = absolutePath => relative(process.cwd(), absolutePath).split(
 async function inlineCssImages(css, identity, ctx) {
   if (!css.includes('url(')) return css
   let next = css
-  for (const match of css.matchAll(/url\((['"]?)\.\/([^'")]+)\1\)/g)) {
+  for (const match of css.matchAll(/url\((['"]?)(\.\.?\/[^'")]+)\1\)/g)) {
     const [whole, , file] = match
     const assetPath = resolve(process.cwd(), dirname(identity), file)
     ctx.addWatchFile(assetPath)

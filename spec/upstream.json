@@ -1,16 +1,16 @@
 {
   "$comment": "由 `pnpm drift:record` 生成。记录每个克隆文件在上游 checkout 里的内容哈希。",
-  "commit": "1f81c047fc",
-  "generatedAt": "2026-10-26T10:58:07.401Z",
+  "commit": "66491b05e3",
+  "generatedAt": "2026-11-05T02:05:15.656Z",
   "packages": {
     "@deepseek-ai/dsh-client-ui-chat": {
-      "version": "0.2.1-rc.3",
-      "recorded": "0.2.1-rc.3",
+      "version": "0.2.2-rc.1",
+      "recorded": "0.2.2-rc.1",
       "sourceRoot": "packages/client/ui-chat/src/client"
     },
     "@deepseek-ai/dsh-client-ui-conversation": {
-      "version": "0.2.1-rc.3",
-      "recorded": "0.2.1-rc.3",
+      "version": "0.2.2-rc.1",
+      "recorded": "0.2.2-rc.1",
       "sourceRoot": "packages/client/ui-conversation/src/client"
     }
   },
@@ -22,7 +22,7 @@
         {
           "source": "ui-chat:chat/AssistantMarkdown.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-e0d3e450a160ef395e4f50063d83a83a749763f7876fa0a36c5c2de68f6be387"
+          "sha256": "sha256-07f1fde40b63cfa4723bd049692d2e8ed705a3223ff67cfe6584e65f11a46e51"
         }
       ]
     },
@@ -44,7 +44,7 @@
         {
           "source": "ui-chat:chat/AssistantNodeView.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-72bbc22bd8584c6f8c07656e33b7adb5858f2151eff6e21c6e9a9e87178c41c2"
+          "sha256": "sha256-0bedaacc01cdb134bdccced4690904d4a43ea3134739221f3f589b091ab9d922"
         }
       ]
     },
@@ -55,7 +55,7 @@
         {
           "source": "ui-chat:chat/ReasoningRow.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-5bf98dd0c28c7ef48795fda2b714cc32b36bb2d6e86b78add02d89590a884612"
+          "sha256": "sha256-5ff9e4f02929bf58ce091b1a0f009753685336b0437b8af4684c3a23a31f651d"
         }
       ]
     },
@@ -67,6 +67,17 @@
           "source": "ui-chat:chat/ReasoningRow.module.css",
           "package": "@deepseek-ai/dsh-client-ui-chat",
           "sha256": "sha256-5c28a61623c3bda67513c728422141921909d5227dbfb6c2e8a1a2e7e59079b1"
+        }
+      ]
+    },
+    {
+      "local": "src/client/assistant/reasoning-text.ts",
+      "kind": "verbatim",
+      "sources": [
+        {
+          "source": "ui-chat:reasoning-text.ts",
+          "package": "@deepseek-ai/dsh-client-ui-chat",
+          "sha256": "sha256-e65bed4c7627f02ed2f1db4595cbeca24d767c4c23da517d1bb262995a1bdb17"
         }
       ]
     },
@@ -88,7 +99,7 @@
         {
           "source": "ui-chat:chat/ChatFlow.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-8008a2a6097d0368ffdc02b4e7df95f35c50fda4c411e81d2ebc7897fa029e48"
+          "sha256": "sha256-7d096c93bb080a46f591f4ac1347348610690aa49d4b230ce56e559e506c122f"
         }
       ]
     },
@@ -99,7 +110,7 @@
         {
           "source": "ui-chat:chat/ChatGroupSeat.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-90b55d52fd9abb5b3ed09562d12c4d166677b6d856f2cb692c2945b31ef10951"
+          "sha256": "sha256-dfb997d69cb9d04612b7542b5764ad9bd1595ee7205d71d36e2b53efd3734645"
         }
       ]
     },
@@ -110,7 +121,7 @@
         {
           "source": "ui-chat:chat/ChatGroupSeat.module.css",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-dc7b725e4f1d25bb046c7f2d995ad4c60e32b18fc5bd8d7d84361c48512a1307"
+          "sha256": "sha256-3588ae0f5ab150632e529ffdbdc0883fdab939f1b46ab7bb03b35130297ac8d1"
         }
       ]
     },
@@ -121,7 +132,7 @@
         {
           "source": "ui-chat:chat/ChatNodeSeat.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-950c08b9a67e21adf7440329bddfe70ef2e50495afec407d93ea2a225572db17"
+          "sha256": "sha256-e3184a591fb0e2d71f6cf64031a36a4a6599edc90c15dd9ed55357d16e7ea754"
         }
       ]
     },
@@ -187,7 +198,7 @@
         {
           "source": "ui-chat:chat/RunningStatus.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-a1b1a866e7c6a07ab4233f27fe186079f24bfec3478a7b326ef248d3bdfcb225"
+          "sha256": "sha256-53971b4e146b701d5a11e9473df79dea51934079f771597af2af7f831d746a20"
         }
       ]
     },
@@ -209,7 +220,7 @@
         {
           "source": "ui-chat:chat/MessageIconActions.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-57bbf290748e848503b92d8659b4197c6cc62293cd2301bbe95bec43c8626fb5"
+          "sha256": "sha256-c2aad02ac677070772e22ba9e8a26ea91aa69a73cd242879ba18287a8b3fe6b8"
         }
       ]
     },
@@ -220,7 +231,7 @@
         {
           "source": "ui-chat:chat/MessageItem.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-118a4d1dcf9eb3b128708b3021acd6f2f7584004f6f904e2d61df23daa528e63"
+          "sha256": "sha256-b337fd86608b7c22406f794024af8bdc011bd0c51bfd16c575c3b1e7f8aa3d4e"
         }
       ]
     },
@@ -231,12 +242,12 @@
         {
           "source": "ui-chat:chat/MessageItem.module.css",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-d82759f3805832e0087dd85b41473ec4bf93aea51aa039378f161df4ccac1038"
+          "sha256": "sha256-ca84271735a3e41229d4edc49bd9e3ddc06ea99698f12a2a3c98dd30a8d14743"
         },
         {
           "source": "ui-chat:chat/MessageIconActions.module.css",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-b5e3ced5112bb676345eaa7d1bf7ec291b87f56ffa87579b6ece7b6ca6c72902"
+          "sha256": "sha256-a54995e5b62a776f619e034296fd59966a3940fc3768175e497cff256b045882"
         }
       ]
     },
@@ -247,7 +258,7 @@
         {
           "source": "ui-chat:chat/ChatView.module.css",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-9b5f56347f4b86846766ae9544207b7ecf112e857e2c31ca9fb8a3e734b5bafb"
+          "sha256": "sha256-665bde92503ad829f7ea188b6631435802f30e7e2c3dd80be991cf36d3806a91"
         }
       ]
     },
@@ -263,7 +274,7 @@
         {
           "source": "ui-chat:chat/flow-motion.ts",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-e9e30f8ebb8b5326d1c4ecc03768c8a91157158f6b8c3721d63683ae9f6db146"
+          "sha256": "sha256-ac9c102c60fcb3355a26d9be599055dba87c96c7d1fe2d8b2c27af101123a8ef"
         },
         {
           "source": "ui-chat:chat/step-process.ts",
@@ -284,7 +295,7 @@
         {
           "source": "ui-chat:contract/group-tree.ts",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-2257ee9912102b4a05a8d2b17828b109082986274437b8d2a494b1c64536d04d"
+          "sha256": "sha256-adac187552b1459eaeb5bf9ae02fcae1b4e2a7e7e4f023a59fc1ebcd22865f33"
         },
         {
           "source": "ui-chat:contract/turn-process.ts",

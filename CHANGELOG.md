@@ -1,9 +1,10 @@
 # 变更记录
 
-本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。DSH 目标版本写在
-`package.json` 的 `engines.dsh` 里，只在与之匹配的 DSH 版本上保证行为。
+本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)，**插件版本独立于 DSH 版本**
+（兼容范围只由 `package.json` 的 `engines.dsh` 表达）。历史版本号与 DSH 版本
+形式上相似只是巧合，二者没有对齐关系。详见 README 的「版本策略」。
 
-## [0.2.2] — 2026-11-10
+## [0.3.0] — 2026-11-10
 
 重同步到 DSH `0.2.2-rc.1`。**这是破坏性升级：不再支持 0.2.1 线。**
 

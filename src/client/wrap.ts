@@ -28,8 +28,22 @@ export interface WrapTarget {
 /** 包装器工厂：接收原组件，返回替换它的组件。 */
 export type WrapperFactory = (inner: never) => unknown
 
-/** 已包裹过的组件身份，避免同一组件被叠加包裹多次。 */
-const wrappedComponents = new WeakSet<object>()
+/**
+ * 已包裹的组件 → 它包裹的**原始**组件。
+ *
+ * 用 Map 而不是 Set：接管一个既有包裹时需要知道该还原成什么。
+ */
+const wrappedComponents = new WeakMap<object, unknown>()
+
+/**
+ * 每条 entry 当前的包裹所有权令牌。
+ *
+ * 为什么需要：插件被重新应用时，新实例可能**先**跑起来、旧实例的异步销毁
+ * **后**才完成。旧实现里旧实例的还原会无条件把 component 写回官方版本，
+ * 把新实例的包裹一起抹掉——表现就是「自动展开突然失效，直到重启」。
+ * 令牌保证只有当前所有者才能还原。
+ */
+const owners = new WeakMap<object, symbol>()
 
 /**
  * 从候选组件中筛出可包裹的（函数或 exotic component）。
@@ -44,7 +58,12 @@ export function isWrappable(value: unknown): boolean {
 /**
  * 在目标 entry 上原地替换 component。
  *
- * 幂等：同一 `inner` 只会被包裹一次（用 WeakSet 记录）。
+ * 幂等与所有权：
+ *  - 同一 `inner` 不会被**叠加**包裹两次；
+ *  - 若 `entry.component` 已经是本插件此前某个实例的包裹，本次调用**接管**
+ *    所有权并返回一个受令牌保护的还原函数（而不是返回 NOOP 放任旧实例
+ *    稍后把包裹撤掉）。
+ *
  * 安全：entry 不存在、组件不可包裹、赋值被拒时都不抛错，只返回 NOOP 或记录警告。
  *
  * @param entries - 当前 slot 的全部注册项（来自 `ctx.slots.entries(slot)`）。
@@ -63,13 +82,26 @@ export function wrapEntry(
     target.key === undefined || candidate.options.key === target.key)
   if (entry === undefined) return NOOP
 
-  const inner = entry.component
+  const token = Symbol('dsh-auto-expand wrapper owner')
+  const current = entry.component
+
+  // 已经是本插件的包裹（来自更早的实例）：接管，而不是再包一层。
+  if (wrappedComponents.has(current as object)) {
+    const original = wrappedComponents.get(current as object)
+    owners.set(entry as object, token)
+    return () => {
+      if (owners.get(entry as object) !== token) return
+      owners.delete(entry as object)
+      if (entry.component === current) entry.component = original
+    }
+  }
+
+  const inner = current
   if (!isWrappable(inner)) {
     console.warn(`${tag} 无法包裹 ${target.slot}${target.key === undefined ? '' : `:${target.key}`}`
       + '：组件不可包裹，插件在该位置不生效')
     return NOOP
   }
-  if (wrappedComponents.has(inner as object)) return NOOP
 
   let outer: unknown
   try {
@@ -91,8 +123,12 @@ export function wrapEntry(
     return NOOP
   }
 
-  wrappedComponents.add(outer as object)
+  wrappedComponents.set(outer as object, inner)
+  owners.set(entry as object, token)
   return () => {
+    // 已被更新的实例接管：不要还原，否则会把别人的包裹撤掉。
+    if (owners.get(entry as object) !== token) return
+    owners.delete(entry as object)
     if (entry.component === outer) entry.component = inner
   }
 }

@@ -37,18 +37,26 @@ test('正常包裹：替换 component 并支持还原', () => {
   assert.equal(target.component, inner, '还原后应恢复原组件')
 })
 
-test('幂等：同一组件不会被包裹两次', () => {
+test('幂等：不会叠加包裹，第二次调用接管所有权', () => {
   const inner = component('Inner')
   const target = entry(undefined, inner)
   const first = wrapEntry([target], { slot: 'conversation.chat.flow' },
     () => component('Outer1'), '[test]')
   const wrappedOnce = target.component
-  // 第二次：target.component 已是 Outer1，且它被记录过，应返回 NOOP。
+  // 第二次：target.component 已是 Outer1。不应再包一层，但必须接管所有权，
+  // 否则旧实例稍后的异步销毁会把包裹撤掉（自动展开失效）。
   const second = wrapEntry([target], { slot: 'conversation.chat.flow' },
     () => component('Outer2'), '[test]')
-  assert.equal(second, NOOP, '第二次包裹应被跳过')
-  assert.equal(target.component, wrappedOnce, 'component 不应被二次替换')
+  assert.notEqual(second, NOOP, '第二次应接管而非放弃')
+  assert.equal(target.component, wrappedOnce, 'component 不应被二次包裹')
+
+  // 旧实例的还原被所有权令牌挡住。
   first()
+  assert.equal(target.component, wrappedOnce, '旧实例不得撤掉已接管的包裹')
+
+  // 接管者销毁时才恢复官方组件。
+  second()
+  assert.equal(target.component, inner, '最后一个所有者销毁后应恢复原组件')
 })
 
 test('entry 不存在：返回 NOOP 且不抛错', () => {

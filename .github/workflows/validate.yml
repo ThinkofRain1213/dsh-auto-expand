@@ -4,7 +4,7 @@ name: Validate
 #
 # 本仓库的 `pnpm verify` 是**完全可移植**的：它不读本机安装的 DSH、不读上游
 # checkout（实测：在只含源码的干净快照里 `pnpm install --frozen-lockfile` 后
-# `verify` 166/166 通过、`pack:check` 通过）。所以这里直接跑全量门禁，
+# `verify` 215/215 通过、`pack:check` 通过）。所以这里直接跑全量门禁，
 # 不像 `dsh-project-groups` 那样需要为「读本机 app.asar」的脚本留后门。
 #
 # `pnpm drift` 需要上游源码 checkout，CI 上没有，该命令会以退出码 2 跳过，
@@ -29,7 +29,7 @@ jobs:
   validate:
     name: Node ${{ matrix.node }} · ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # 安装 + typecheck + 构建 + 166 个测试 + 冒烟 + 打包自检 + 发布就绪检查。
+    # 安装 + typecheck + 构建 + 215 个测试 + 冒烟 + 打包自检 + 发布就绪检查。
     # 单个 OS 上一分钟量级；30 分钟足以覆盖依赖安装的网络抖动，
     # 同时不会让一个卡住的运行占满 runner 默认的 6 小时上限。
     timeout-minutes: 30
@@ -49,7 +49,7 @@ jobs:
           cache: pnpm
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      # `verify` = typecheck + build + 166 tests + smoke。
+      # `verify` = typecheck + build + 215 tests + smoke。
       # Windows 上 `run:` 默认是 pwsh，而这里每条都是一个 pnpm 脚本，
       # 不含 shell 语法，所以三平台通用。
       - name: Typecheck, build, test, smoke

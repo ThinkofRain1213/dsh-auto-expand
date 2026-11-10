@@ -3,7 +3,7 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。DSH 目标版本写在
 `package.json` 的 `engines.dsh` 里，只在与之匹配的 DSH 版本上保证行为。
 
-## [0.2.2] — 2026-11-05
+## [0.2.2] — 2026-11-10
 
 重同步到 DSH `0.2.2-rc.1`。**这是破坏性升级：不再支持 0.2.1 线。**
 
@@ -62,20 +62,26 @@
 
 ### 🧪 测试
 
-新增 `tests/folded-replies.spec.mjs`（7 项，覆盖 `hasAssistantReplyContent`
-的叶子判定）与 `tests/reasoning-text.spec.mjs`（7 项，覆盖签名剥离的全部边界）。
-全套 215 项通过。
+新增三组，全套 **222 项**通过：
 
-> 说明：`foldedReplies` 的**主链路判据**（`keepReplies` / `replyRow` /
-> `processMember` / `ownsDisclosure` / `hasContent`）目前仍无自动化测试覆盖 ——
-> 它们在 `AutoNodeSeat` 组件内部，抽出纯函数会触碰「不改现有实现」的约束。
-> 本次已逐字符对照上游源码确认一致，但缺少回归保护，属已知缺口。
+- `tests/folded-replies.spec.mjs`（7 项）：`hasAssistantReplyContent` 的叶子判定。
+- `tests/reasoning-text.spec.mjs`（7 项）：签名剥离的全部边界（未闭合、
+  流式前缀、空结果、CRLF 等）。
+- `tests/folded-replies-contract.spec.mjs`（7 项）：`foldedReplies` 主链路的
+  **结构契约**。
+
+> 关于最后一组为什么是结构断言：五条主链路判据（`keepReplies` / `replyRow` /
+> `processMember` / `ownsDisclosure` / `hasContent`）都长在 React 组件内部，
+> 本仓库没有 DOM 渲染测试设施，而抽成纯函数属于「改现有实现」，超出重同步
+> 范围。这组契约钉住上游 0.2.2-rc.1 的关键结构，作为回归护栏 —— 已用变异
+> 测试验证：删掉 `processMember` 里的 `!replyRow` 守卫后，它立即变红。
 
 ### 📌 已知的验证限制
 
-`verify-css-isolation` 会在本次的 worktree 布局下报「与自己撞名」的假阳性 ——
-它扫描项目同级目录寻找兄弟插件，而 worktree 与原项目同名同级。排除重名干扰后
-该项 `ALL CHECKS PASSED`。
+`verify-css-isolation` 在**并存 worktree** 时会报「与自己撞名」的假阳性 ——
+它扫描项目同级目录寻找兄弟插件，而 worktree 与原项目同名同级。在唯一的
+`dsh-auto-expand` 目录下运行该项 `ALL CHECKS PASSED`（已验证）。用 worktree
+开发时请忽略该条，或临时移开另一份的 `lib/`。
 
 ## [0.2.1] — 2026-10-28
 
@@ -145,6 +151,15 @@ dsh-project-groups  → src/client/settings-card.module.css   ← 同一个字�
 - **断言失败时输出诊断**：`Assert committed bundles match src` 现在会打印
   `wc -c` 与 `git diff` 前 80 行。原来的失败信息只有文件名，这正是根因藏了
   11 次的原因。
+- **测试可跨 Node 版本运行**：新增 `scripts/run-tests.mjs` 与
+  `scripts/ts-transform.mjs`。Node 26 移除了 `--experimental-transform-types`，
+  且内置 TypeScript 支持退化为仅剥离，遇到 `use-scroll-follow.ts` 的参数属性
+  会直接报 `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`，导致 `pnpm test` 一条都跑不了。
+  启动器按主版本选择路径：Node 22–25 继续用原生标志，Node 26+ 用基于已有
+  `typescript` 依赖的加载期转换钩子。**不引入新依赖**，Node 24（CI 与 DSH 运行时）
+  行为不变。测试文件改为目录自动发现，避免新增测试时漏登记。
+- **`pnpm-workspace.yaml` 补说明**：那份 `minimumReleaseAgeExclude` 豁免清单
+  是安装预发布版 DSH 包所必需，已注明维护方式。
 
 ## [0.2.0] — 2026-10-27
 

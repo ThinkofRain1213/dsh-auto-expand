@@ -1,3 +1,11 @@
+# pnpm 的「最小发布年龄」策略豁免清单。
+#
+# pnpm 默认拒绝安装刚发布不久的包（供应链防护）。本插件跟随 DSH 的预发布
+# 线（0.2.2-rc.x），这些版本发布到我们能安装之间往往不足策略要求的时间，
+# 因此需要逐个豁免，否则 `pnpm install` 直接失败。
+#
+# **维护提示**：这份清单会随 DSH 版本更新持续增长。每次跟随新的 DSH 版本后，
+# 应删掉不再使用的旧版本条目（它们只对尚未安装的解析生效，删掉不影响已装依赖）。
 minimumReleaseAgeExclude:
   - '@deepseek-ai/cordis-plugin-group@1.1.0'
   - '@deepseek-ai/cordis-plugin-include@1.1.0'

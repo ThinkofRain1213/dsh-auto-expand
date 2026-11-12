@@ -4,6 +4,44 @@
 （兼容范围只由 `package.json` 的 `engines.dsh` 表达）。历史版本号与 DSH 版本
 形式上相似只是巧合，二者没有对齐关系。详见 README 的「版本策略」。
 
+## [0.3.2] — 2026-11-12
+
+跟进 DSH `0.2.2-rc.2`。
+
+### 上游变更面
+
+rc.1 → rc.2 共 1568 个提交，但我们引用的 30 个上游文件里**只有 5 个**变了；
+逐项核对后只有 2 处需要跟进。
+
+### 🔧 跟进
+
+- **`AutoGroupSeat`（编译修复）**：rc.2 给 `ProcessActivity` 新增了 `'context'`
+  类别（Context 注入分组），并新增 `RunningProcessActivity`（`Exclude<…, 'context'>`）。
+  补上 `context` 的图标项，并把 `LiveProcessTitle.activity` 收窄为
+  `RunningProcessActivity | 'thinking'`。不跟进会在 rc.2 类型下编译失败。
+- **`AutoAssistantMarkdown.module.css`（视觉）**：同步 rc.2 的块间距规则 ——
+  `.body` 的间距改为 `--dsh-assistant-block-gap`，reasoning 分组降到 4px；
+  `.body > :empty:not([class])` 也参与负边距。后一条与上一版新增的
+  「signature-only 思考块整行不渲染」直接配合，否则会留下 16px 空隙。
+
+### ✅ 核对后无需跟进
+
+- `ChatView.module.css`：改的是 `.scroll` / `.older` / `.historyHidden`，
+  我们的部分克隆不含这些规则
+- `MessageItem.module.css`：改的是 compaction / file card 的颜色 fallback，
+  本插件不涉及
+- `flow-motion.ts`：新增 `FlowMotion.active()`，本插件只摘了 `hiddenOrCollapsing`
+
+### 🔧 依赖与基线
+
+- `devDependencies` 十个 `@deepseek-ai/dsh-*` 包 → `0.2.2-rc.2`
+- `engines.dsh` 保持 `>=0.2.2-rc.1 <0.2.3`（该范围已覆盖 rc.2，无需收窄）
+- 漂移基线 → `ddac96760b`（tag `dsh-v0.2.2-rc.2`）
+
+### 🧪 验证
+
+225 项测试通过；`pnpm verify` 全绿；漂移检测 31 个来源无差异。
+
 ## [0.3.1] — 2026-11-10
 
 修复：**与 `dsh-project-groups` 交替启停后，自动展开偶发失效**（需重启 DSH 才恢复）。

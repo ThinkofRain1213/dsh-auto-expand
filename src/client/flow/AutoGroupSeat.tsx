@@ -24,12 +24,12 @@
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import {
   IconAgentPresetOutlineRegular, IconApiOutlineRegular, IconBrowseOutlineRegular, IconChevronDownOutlineRegular,
-  IconChevronUpOutlineRegular, IconCodeOutlineRegular, IconEditOutlineRegular, IconGlobeOutlineRegular,
-  IconPlanOutlineRegular, IconQuestionOutlineRegular, IconSearchOutlineRegular, IconSparkleRegular,
+  IconChevronUpOutlineRegular, IconCodeOutlineRegular, IconContextInjectionOutlineRegular, IconEditOutlineRegular,
+  IconGlobeOutlineRegular, IconPlanOutlineRegular, IconQuestionOutlineRegular, IconSearchOutlineRegular, IconSparkleRegular,
   IconThinkOutlineRegular, TextShimmer,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { GroupKey, NodeReference } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { ChatStoreState, ProcessActivity } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { ChatStoreState, ProcessActivity, RunningProcessActivity } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ChatFlowSlotProps } from '../contract/slots.ts'
 import { turnProcessOpen } from '../contract/chat-contract.ts'
 import { useAutoDisclosure } from '../auto-disclosure.ts'
@@ -69,7 +69,7 @@ type ProcessTitleActivity = ProcessActivity | 'thinking'
 
 /** 运行中标题的完整状态。 */
 interface LiveProcessTitle {
-  readonly activity: ProcessTitleActivity
+  readonly activity: RunningProcessActivity | 'thinking'
   readonly detail: string
   readonly preparing: boolean
 }
@@ -88,6 +88,7 @@ const PROCESS_ICONS: Record<ProcessTitleActivity, ReactNode> = {
   plan: <IconPlanOutlineRegular />,
   questions: <IconQuestionOutlineRegular />,
   tools: <IconSparkleRegular size={14} />,
+  context: <IconContextInjectionOutlineRegular size={14} />,
   commands: <IconApiOutlineRegular />,
   code: <IconCodeOutlineRegular size={14} />,
 }

@@ -1,16 +1,16 @@
 {
   "$comment": "由 `pnpm drift:record` 生成。记录每个克隆文件在上游 checkout 里的内容哈希。",
-  "commit": "66491b05e3",
-  "generatedAt": "2026-11-05T03:16:57.655Z",
+  "commit": "ddac96760b",
+  "generatedAt": "2026-11-12T03:46:15.787Z",
   "packages": {
     "@deepseek-ai/dsh-client-ui-chat": {
-      "version": "0.2.2-rc.1",
-      "recorded": "0.2.2-rc.1",
+      "version": "0.2.2-rc.2",
+      "recorded": "0.2.2-rc.2",
       "sourceRoot": "packages/client/ui-chat/src/client"
     },
     "@deepseek-ai/dsh-client-ui-conversation": {
-      "version": "0.2.2-rc.1",
-      "recorded": "0.2.2-rc.1",
+      "version": "0.2.2-rc.2",
+      "recorded": "0.2.2-rc.2",
       "sourceRoot": "packages/client/ui-conversation/src/client"
     }
   },
@@ -33,7 +33,7 @@
         {
           "source": "ui-chat:chat/AssistantMarkdown.module.css",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-e10c5986e93070cf87bbd5c4a570a64a103c0d596d178ad4b8e170bbb6883908"
+          "sha256": "sha256-9af7645e8ce615e9e8acdc0be78653684a94520b3b01388773eac2f72980747a"
         }
       ]
     },
@@ -110,7 +110,7 @@
         {
           "source": "ui-chat:chat/ChatGroupSeat.tsx",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-dfb997d69cb9d04612b7542b5764ad9bd1595ee7205d71d36e2b53efd3734645"
+          "sha256": "sha256-d0f5ef09ee926c4aaf906413e05d64bbf567af8a7983c85b3d7b525a1d55bd1c"
         }
       ]
     },
@@ -242,7 +242,7 @@
         {
           "source": "ui-chat:chat/MessageItem.module.css",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-ca84271735a3e41229d4edc49bd9e3ddc06ea99698f12a2a3c98dd30a8d14743"
+          "sha256": "sha256-1cc9a7e2e8b6b1f70e8d512332dfc5d73c4e4bdc2d15edf85f3545acfbe1b564"
         },
         {
           "source": "ui-chat:chat/MessageIconActions.module.css",
@@ -258,7 +258,7 @@
         {
           "source": "ui-chat:chat/ChatView.module.css",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-665bde92503ad829f7ea188b6631435802f30e7e2c3dd80be991cf36d3806a91"
+          "sha256": "sha256-f87d78461c8b5c9d6416fc32b37b5e84864f6595f1bd9354318fb8d9e0c4d7b3"
         }
       ]
     },
@@ -274,7 +274,7 @@
         {
           "source": "ui-chat:chat/flow-motion.ts",
           "package": "@deepseek-ai/dsh-client-ui-chat",
-          "sha256": "sha256-ac9c102c60fcb3355a26d9be599055dba87c96c7d1fe2d8b2c27af101123a8ef"
+          "sha256": "sha256-45bf466a06d0b1cb5b148fef5d0fa0ea755719628b435309d568a3fcc83845a5"
         },
         {
           "source": "ui-chat:chat/step-process.ts",

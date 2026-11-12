@@ -250,6 +250,9 @@ DSH 默认把工作过程折叠成三层：
 ## 目标版本
 
 - DSH `0.2.2-rc.2`（`engines.dsh` 为 `>=0.2.2-rc.1 <0.2.3`）
+- 源码的开发与测试基线是 `0.2.2-rc.2`（`devDependencies` 固定该版本）。
+  `engines.dsh` 仍允许 rc.1——运行时兼容（差异只在类型面），但不要拿 rc.1 的
+  依赖树跑 `tsc`：rc.2 才有的类型（如 `RunningProcessActivity`）会缺失。
 - 依赖 `@deepseek-ai/dsh-client-ui-chat` 与 `@deepseek-ai/dsh-client-ui-tool`
   的内部渲染结构；上游若改动需同步克隆组件（见各文件头部的上游版本记录）
 - 升级上游后先跑 `pnpm drift`：它逐文件比对克隆来源，0 漂移才能放心升级
@@ -285,7 +288,8 @@ pnpm watch          # 增量构建
 
 ## 上游依赖与漂移
 
-本插件克隆了官方的 23 个源文件（清单见 `scripts/upstream-manifest.mjs`），
+本插件克隆了官方的 24 个本地文件、共 31 条来源（去重后 30 个上游文件；
+清单见 `scripts/upstream-manifest.mjs`），
 因为官方没有导出这些组件、且重新注册 slot 会被拒绝（见 `spec/DESIGN.md`）。
 工具结果那一层**没有新增克隆**：它是包裹官方组件、只替换一个 prop 实现的。
 
@@ -294,6 +298,10 @@ DSH 升级后**第一件事**是跑 `pnpm drift`：
 - 它把每个克隆文件指回上游出处，用内容哈希判断上游是否变了；
 - `verbatim`（整份克隆）变了 → 必须逐行重新对照，可能漏掉了新分支；
 - `partial`（部分摘取）变了 → 复核被摘取的片段即可。
+
+> **默认路径是同级 `../deepseek-harness`，它必须正好停在目标版本**；
+> 否则（例如本地 checkout 还停在旧 tag）会拿错版本对照，得到一堆假漂移。
+> 用 `pnpm drift -- --upstream <path>` 或环境变量 `DSH_SOURCE_CHECKOUT` 指定。
 
 确认克隆已对齐后，用 `pnpm drift:record` 刷新 `spec/upstream.json`。
 
